@@ -1,0 +1,10 @@
+{
+    "editor.formatOnSave": true,
+    "deno.enable": true,
+    "deno.unstable": true,
+    "deno.config": "./deno.jsonc",
+    "triggerTaskOnSave.tasks": {
+        "deno bundle": ["*/*.ts", "*/*.tsx"],
+        "deno sass": ["**/*.scss"]
+    }
+}

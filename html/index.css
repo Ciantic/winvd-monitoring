@@ -1,0 +1,205 @@
+body,
+html {
+  margin: 0;
+  padding: 0;
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+  font-size: 16px;
+  background: #fff;
+}
+
+#root,
+#app {
+  height: 100%;
+}
+
+/*
+#app {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: #fff;
+    color: #000;
+    padding: 1.5em;
+    box-sizing: border-box;
+    border: 2px solid #000;
+    border-radius: 1.5em;
+}
+
+h1,
+h2,
+h3 {
+    padding: 0;
+    margin: 0;
+    text-align: center;
+}
+
+input {
+    // reset input
+    border: none;
+    outline: none;
+    background: none;
+    font-size: 1em;
+    font-family: inherit;
+    color: inherit;
+    padding: 0;
+    margin: 0;
+    width: 100%;
+    text-align: center;
+    box-sizing: border-box;
+
+    &.title {
+        font-size: 2em;
+        font-weight: bold;
+    }
+
+    &.subtitle {
+        font-size: 1.5em;
+    }
+}
+*/
+
+.timings {
+  font-family: "Segoe UI", sans-serif;
+  font-size: 5vw;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+  grid-template-rows: 2.25em 2.25em auto 3em;
+  grid-template-areas: "client client client" "project project project" "todayIndicator todayIndicator todayIndicator" "eightWeek lastWeek thisWeek";
+  text-align: center;
+  height: 100%;
+  min-height: 11em;
+}
+
+.timings input {
+  -webkit-appearance: none;
+     -moz-appearance: none;
+          appearance: none;
+  border: 0;
+  font-family: inherit;
+  font-size: inherit;
+  text-align: center;
+}
+
+.timings input:focus {
+  outline: 0;
+}
+
+.timings.loadingTotals {
+  opacity: 0.5;
+}
+
+.timings .clientName {
+  grid-area: client;
+}
+
+.timings .projectName {
+  grid-area: project;
+}
+
+.timings .eightWeek {
+  grid-area: eightWeek;
+}
+
+.timings .lastWeek {
+  grid-area: lastWeek;
+}
+
+.timings .thisWeek {
+  grid-area: thisWeek;
+}
+
+.timings .todayIndicator {
+  grid-area: todayIndicator;
+  position: relative;
+}
+
+.timings .indicator {
+  cursor: pointer;
+  z-index: 2;
+  position: absolute;
+  right: 16.5%;
+  top: 50%;
+  transform: translateY(-50%) translateX(50%);
+  width: 1.25em;
+  height: 1.25em;
+  background: green;
+  border-radius: 50%;
+  transition: all 0.25s;
+}
+
+.timings .indicator.enabled {
+  background: green;
+}
+
+.timings .indicator.disabled {
+  background: red;
+  width: 0.75em;
+  height: 0.75em;
+}
+
+.paused .timings .indicator {
+  background: none;
+}
+
+.timings .indicator:after {
+  content: "";
+  display: block;
+  position: absolute;
+  left: -0.5em;
+  right: -0.5em;
+  bottom: -0.5em;
+  top: -0.5em;
+  opacity: 0;
+  z-index: 1;
+  transition: opacity 0.25s;
+  background-image: inline-svg('<svg xmlns:svg="http://www.w3.org/2000/svg" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 12 12"><g stroke="red" stroke-width="1"><line x1="1" y1="1" x2="11" y2="11" /><line x1="11" y1="1" x2="1" y2="11" /></g></svg>');
+}
+
+.paused .timings .indicator:after {
+  opacity: 1;
+}
+
+.timings .indicator:hover:after {
+  opacity: 1;
+}
+
+.paused .timings .indicator:hover:after {
+  opacity: 0.5;
+}
+
+.timings .sensor {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translateY(-50%) translateX(-50%);
+  width: 0.5em;
+  height: 0.5em;
+  border-radius: 50%;
+}
+
+.timings .sensor.disabled {
+  background: #fff;
+}
+
+.timings .today {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  left: 0;
+  right: 0;
+  margin-top: -0.05em;
+  text-align: center;
+  font-size: 200%;
+}
+
+.timings .text {
+  font-size: 70%;
+}

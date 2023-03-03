@@ -1,0 +1,141 @@
+$anim-speed: 0.25s;
+.timings {
+    font-family: "Segoe UI", sans-serif;
+    font-size: 5vw;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-rows:
+        2.25em
+        2.25em
+        auto
+        3em;
+    grid-template-areas:
+        "client client client"
+        "project project project"
+        "todayIndicator todayIndicator todayIndicator"
+        "eightWeek lastWeek thisWeek";
+    text-align: center;
+    height: 100%;
+    min-height: 11em;
+    input {
+        appearance: none;
+        border: 0;
+        font-family: inherit;
+        font-size: inherit;
+        text-align: center;
+        &:focus {
+            outline: 0;
+        }
+    }
+
+    &.loadingTotals {
+        opacity: 0.5;
+    }
+
+    .clientName {
+        grid-area: client;
+    }
+    .projectName {
+        grid-area: project;
+    }
+    .eightWeek {
+        grid-area: eightWeek;
+    }
+    .lastWeek {
+        grid-area: lastWeek;
+    }
+    .thisWeek {
+        grid-area: thisWeek;
+    }
+
+    .todayIndicator {
+        grid-area: todayIndicator;
+        position: relative;
+    }
+
+    .indicator {
+        cursor: pointer;
+        z-index: 2;
+        position: absolute;
+        right: 16.5%;
+        top: 50%;
+        transform: translateY(-50%) translateX(50%);
+        width: 1.25em;
+        height: 1.25em;
+        background: green;
+        border-radius: 50%;
+        transition: all $anim-speed;
+        &.enabled {
+            background: green;
+        }
+        &.disabled {
+            background: red;
+            width: 0.75em;
+            height: 0.75em;
+        }
+        .paused & {
+            background: none;
+        }
+
+        &:after {
+            content: "";
+            display: block;
+            position: absolute;
+            left: -0.5em;
+            right: -0.5em;
+            bottom: -0.5em;
+            top: -0.5em;
+            opacity: 0;
+            z-index: 1;
+            transition: opacity $anim-speed;
+
+            $close-color: red;
+            background-image: inline-svg(
+                '<svg xmlns:svg="http://www.w3.org/2000/svg" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 12 12"><g stroke="#{$close-color}" stroke-width="1"><line x1="1" y1="1" x2="11" y2="11" /><line x1="11" y1="1" x2="1" y2="11" /></g></svg>'
+            );
+        }
+
+        .paused &:after {
+            opacity: 1;
+        }
+
+        // Hover over playing indicator
+        &:hover:after {
+            opacity: 1;
+        }
+
+        // Hover over a paused indicator X
+        .paused &:hover:after {
+            opacity: 0.5;
+        }
+    }
+    .sensor {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translateY(-50%) translateX(-50%);
+        width: 0.5em;
+        height: 0.5em;
+        border-radius: 50%;
+        &.disabled {
+            background: #fff;
+        }
+    }
+    .today {
+        position: absolute;
+        top: 50%;
+        transform: translateY(-50%);
+        left: 0;
+        right: 0;
+        margin-top: -0.05em;
+        text-align: center;
+        font-size: 200%;
+    }
+
+    .count {
+    }
+
+    .text {
+        font-size: 70%;
+    }
+}

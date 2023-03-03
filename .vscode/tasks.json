@@ -1,0 +1,54 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "type": "deno",
+            "command": "run",
+            "problemMatcher": ["$deno"],
+            "label": "deno: run"
+        },
+        {
+            "type": "cargo",
+            "command": "tauri",
+            "args": ["dev"],
+            "label": "tauri: dev"
+        },
+        // {
+        //     "label": "deno bundle",
+        //     "type": "shell",
+        //     "command": "deno run --allow-read --allow-write --allow-env --allow-run --allow-net bundle.ts \"${relativeFile}\" \"${relativeFileDirname}/${fileBasenameNoExtension}.js\""
+        // },
+        {
+            "label": "deno bundle",
+            "type": "shell",
+            "command": "deno run --allow-read --allow-write --allow-env --allow-run --allow-net deno-build-typescript.ts \"./html/index.tsx\" \"./html/index.js\"",
+            "presentation": {
+                "echo": true,
+                "reveal": "never",
+                "focus": false
+            }
+        },
+        {
+            "label": "deno sass",
+            "type": "shell",
+            "command": "deno run -A deno-build-scss.ts \"./html/index.scss\" \"index.css\"",
+            // "problemMatcher": ["$lessc"],
+            "presentation": {
+                "echo": true,
+                "reveal": "never",
+                "focus": false
+            }
+        }
+        // {
+        //     "label": "deno sass",
+        //     "type": "shell",
+        //     "command": "deno run -A deno-build-scss.ts \"${relativeFile}\" \"${fileBasenameNoExtension}.css\"",
+        //     // "problemMatcher": ["$lessc"],
+        //     "presentation": {
+        //         "echo": true,
+        //         "reveal": "never",
+        //         "focus": false
+        //     }
+        // }
+    ]
+}
