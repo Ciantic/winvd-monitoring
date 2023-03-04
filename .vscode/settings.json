@@ -4,7 +4,7 @@
     "deno.unstable": true,
     "deno.config": "./deno.jsonc",
     "triggerTaskOnSave.tasks": {
-        "deno bundle": ["*/*.ts", "*/*.tsx"],
+        "deno bundle": ["**/*.ts", "**/*.tsx"],
         "deno sass": ["**/*.scss"]
     }
 }

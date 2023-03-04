@@ -26,7 +26,6 @@ import { asDefaultMap } from "./utils/asDefaultMap.ts";
 import { IPCProtocol, TauriProtocol } from "./IpcProtocol.ts";
 import { ProjectMonitoringDb } from "./ProjectMonitoringDb.ts";
 import { reactionWithOldValue } from "./utils/reactionWithOldValue.ts";
-import { TotalsCache } from "./TotalsCache.ts";
 
 interface Timing {
     client: string;
@@ -34,11 +33,6 @@ interface Timing {
     start: Date;
     end: Date;
 }
-
-let db = new ProjectMonitoringDb();
-
-// For debugging, etc. store db to the global variable
-(window as any)["db"] = db;
 
 const ENV = "development" as "development" | "production";
 const IS_DEBUG = true;
@@ -57,8 +51,6 @@ export class ProjectMonitoringApp {
     }[] = [];
     @observable private start = new Date();
     @observable private end = new Date();
-    @observable private isLoadingTotals = false;
-    private totalsCache = new TotalsCache(db);
 
     private ipcRenderer: IPCProtocol;
     private hideAfterTimeout: any;
@@ -66,7 +58,8 @@ export class ProjectMonitoringApp {
     private updateListenerInterval: any;
     private sendDesktopNameBounceTimeout: any;
     private refreshTypingTimeout: any;
-    private storeToServiceInterval: Timer;
+    private db = new ProjectMonitoringDb();
+
     private cleanReactionClientOrProjectChanges: () => void;
 
     constructor() {
@@ -87,17 +80,10 @@ export class ProjectMonitoringApp {
         this.ipcRenderer.send("projectMonitoringConnected");
 
         this.listenerInterval = setInterval(this.tick, 1000);
-        this.storeToServiceInterval = setInterval(
-            this.storeTimingsToService,
-            ENV == "production" ? 5 * 60000 : 30000 // 5 minutes = production, 30 seconds = development
-        );
-        this.updateListenerInterval = setInterval(async () => {
+
+        this.updateListenerInterval = setInterval(() => {
             if (this.isRunning) {
-                try {
-                    await db.addOrUpdateTiming(this.currentTiming);
-                } catch (err) {
-                    console.error("updateListenerInterval: Update index db error", err);
-                }
+                this.db.addOrUpdateTiming(this.currentTiming);
             }
         }, 30000);
         this.cleanReactionClientOrProjectChanges = reactionWithOldValue(
@@ -119,7 +105,6 @@ export class ProjectMonitoringApp {
         // Call this on componentWillUnmount
         clearInterval(this.listenerInterval);
         clearInterval(this.updateListenerInterval);
-        clearInterval(this.storeToServiceInterval);
         clearTimeout(this.hideAfterTimeout);
         clearTimeout(this.sendDesktopNameBounceTimeout);
         clearTimeout(this.refreshTypingTimeout);
@@ -127,7 +112,8 @@ export class ProjectMonitoringApp {
     }
 
     render() {
-        let totals = this.totalsCache.get(this.currentTiming);
+        // let totals = this.totalsCache.get(this.currentTiming);
+        const totals = this.db.getTotals(this.currentTiming);
 
         return {
             // currentDesktop: this.currentDesktop,
@@ -139,7 +125,7 @@ export class ProjectMonitoringApp {
             onChangeProject: this.onChangeProject,
             personDetectorConnected: this.personDetectorConnected,
             onFocusedInput: this.onFocusedInput,
-            isLoadingTotals: this.isLoadingTotals,
+            isLoadingTotals: this.db.isLoadingTotals,
             todayTotal: totals.todayTotal,
             thisWeekTotal: totals.thisWeekTotal,
             lastWeekTotal: totals.lastWeekTotal,
@@ -226,16 +212,22 @@ export class ProjectMonitoringApp {
         // Update the totals from the cache or database, to avoid typing client
         // or project from spamming requests there is timeout
         clearTimeout(this.refreshTypingTimeout);
-        this.refreshTypingTimeout = setTimeout(() => this.refreshTotals(newValue), 333);
+        this.refreshTypingTimeout = setTimeout(() => this.db.refreshTotals(newValue), 333);
 
         // If the last value was running, store it
         if (oldValue.isRunning) {
-            this.storeCurrentTiming({
+            this.db.addOrUpdateTiming({
                 client: oldValue.client,
                 project: oldValue.project,
                 start: new Date(this.start.getTime()),
                 end: new Date(), // Current time
             });
+            // db.storeCurrentTiming({
+            //     client: oldValue.client,
+            //     project: oldValue.project,
+            //     start: new Date(this.start.getTime()),
+            //     end: new Date(), // Current time
+            // });
         }
 
         // Running changes
@@ -274,40 +266,6 @@ export class ProjectMonitoringApp {
         this.end = new Date();
     }
 
-    private storeCurrentTiming = async (timing: Timing) => {
-        let len = timing.end.getTime() - timing.start.getTime();
-        if (IS_DEBUG) {
-            console.log("try to store", timing.client, timing.project, len);
-        }
-        if (timing.client && timing.project && len > 3000) {
-            await this.refreshTotals(timing);
-            this.totalsCache.add(timing);
-            await db.addOrUpdateTiming(timing);
-        }
-    };
-
-    private storeTimingsToService = async () => {
-        let timings = await db.getTimings();
-
-        try {
-            await Api.timings.post(timings);
-            await db.deleteTimings(timings);
-        } catch (e) {
-            console.error("storeTimingsToService:", e);
-        }
-    };
-
-    @action private refreshTotals = async (clientProject: { client: string; project: string }) => {
-        this.isLoadingTotals = true;
-        try {
-            await this.totalsCache.refresh(clientProject);
-        } catch (err) {
-            console.error("refreshTotals:", err);
-        } finally {
-            this.isLoadingTotals = false;
-        }
-    };
-
     @action
     private onBlurApp = () => {
         this.isFocusedInput = false;
@@ -328,6 +286,7 @@ export class ProjectMonitoringApp {
     @action
     private onChangeProject = (v: string) => {
         // this.desktops.setDefault(this.currentDesktop).project = v;
+        console.log("Set project name", v);
         this.project = v;
         clearTimeout(this.sendDesktopNameBounceTimeout);
         this.sendDesktopNameBounceTimeout = setTimeout(this.sendDesktopName, 150);

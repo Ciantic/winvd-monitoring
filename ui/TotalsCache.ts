@@ -125,23 +125,21 @@ export class TotalsCache {
             return;
         }
 
-        let getFromIdb = this.db.getTimingsByClientAndProject(clientProject).then((collection) =>
-            collection.each((timing) => {
-                let len = (timing.end.getTime() - timing.start.getTime()) / 1000 / 3600;
+        for (const timing of this.db._getTimingsByClientAndProject(clientProject)) {
+            const len = (timing.end.getTime() - timing.start.getTime()) / 1000 / 3600;
 
-                let dailyKey = getDailyKey(timing);
-                let dailyTotals = this.dailyTotals.getDefault(dailyKey);
-                this.dailyTotals.set(dailyKey, dailyTotals + len);
+            const dailyKey = getDailyKey(timing);
+            const dailyTotals = this.dailyTotals.getDefault(dailyKey);
+            this.dailyTotals.set(dailyKey, dailyTotals + len);
 
-                let weeklyKey = getWeeklyKey(timing);
-                let weeklyTotals = this.weeklyTotals.getDefault(weeklyKey);
-                this.weeklyTotals.set(weeklyKey, weeklyTotals + len);
+            const weeklyKey = getWeeklyKey(timing);
+            const weeklyTotals = this.weeklyTotals.getDefault(weeklyKey);
+            this.weeklyTotals.set(weeklyKey, weeklyTotals + len);
 
-                let totalKey = getTotalKey(timing);
-                let totals = this.totals.getDefault(totalKey);
-                this.totals.set(totalKey, totals + len);
-            })
-        );
+            const totalKey = getTotalKey(timing);
+            const totals = this.totals.getDefault(totalKey);
+            this.totals.set(totalKey, totals + len);
+        }
 
         let getFromApi = Promise.all([
             Api.timings.total(clientProject),
@@ -154,6 +152,6 @@ export class TotalsCache {
             this.set(clientProject, days, total.hours);
         });
 
-        return Promise.all([getFromIdb, getFromApi]);
+        return getFromApi;
     }
 }

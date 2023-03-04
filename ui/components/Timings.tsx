@@ -27,26 +27,42 @@ export interface TimingsProps {
     onChangeProject?: (value: string) => void;
     onClickPlayPause?: () => void;
 }
+
+let focusedTimeout = 0;
+
 export const Timings = (p: TimingsProps) => {
-    let isFocused = false;
-    const onChangeClient = (e: JSX.TargetedEvent<HTMLInputElement, Event>) => {
+    const onChangeClient = useCallback((e: JSX.TargetedEvent<HTMLInputElement, Event>) => {
         if (p.onChangeClient) p.onChangeClient(e.currentTarget?.value);
-    };
-    const onChangeProject = (e: JSX.TargetedEvent<HTMLInputElement, Event>) => {
+    }, []);
+
+    const onChangeProject = useCallback((e: JSX.TargetedEvent<HTMLInputElement, Event>) => {
         if (p.onChangeProject) p.onChangeProject(e.currentTarget?.value);
-    };
-    const onFocus = (e: JSX.TargetedEvent<HTMLInputElement, Event>) => {
-        isFocused = true;
+    }, []);
+
+    const onFocus = useCallback((e: JSX.TargetedEvent<HTMLInputElement, Event>) => {
+        // setFocused(true);
         e.currentTarget?.select();
-        setTimeout(() => isFocused && p.onFocusedInput && p.onFocusedInput(true), 30);
-    };
-    const onBlur = (e: JSX.TargetedEvent<HTMLInputElement, Event>) => {
-        isFocused = false;
+
+        if (focusedTimeout) clearTimeout(focusedTimeout);
+        focusedTimeout = setTimeout(() => {
+            if (p.onFocusedInput) p.onFocusedInput(true);
+        }, 200);
+
+        // setTimeout(() => isFocused && p.onFocusedInput && p.onFocusedInput(true), 30);
+    }, []);
+
+    const onBlur = useCallback((e: JSX.TargetedEvent<HTMLInputElement, Event>) => {
+        // setFocused(false);
         if (e.currentTarget) {
             e.currentTarget.setSelectionRange(0, 0, "none");
         }
-        setTimeout(() => !isFocused && p.onFocusedInput && p.onFocusedInput(false), 30);
-    };
+        if (focusedTimeout) clearTimeout(focusedTimeout);
+        focusedTimeout = setTimeout(() => {
+            if (p.onFocusedInput) p.onFocusedInput(false);
+        }, 200);
+        // setTimeout(() => !isFocused && p.onFocusedInput && p.onFocusedInput(false), 30);
+    }, []);
+
     return (
         <div
             className={cns("timings", p.isLoadingTotals && "loadingTotals", p.isPaused && "paused")}
@@ -63,7 +79,7 @@ export const Timings = (p: TimingsProps) => {
                 type="text"
                 onFocus={onFocus}
                 onBlur={onBlur}
-                onChange={onChangeProject}
+                onInput={onChangeProject}
                 className={"projectName"}
                 value={p.projectName}
             />

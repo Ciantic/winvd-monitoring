@@ -6,7 +6,7 @@
 use std::sync::Mutex;
 use tauri::{CustomMenuItem, Manager, Size, SystemTray, SystemTrayMenu, Window, WindowEvent};
 use windows::Win32::Foundation::HWND;
-use winvd::{get_current_desktop, get_desktop};
+use winvd::{get_current_desktop, get_desktop, Desktop};
 
 #[derive(Clone, serde::Serialize)]
 struct Payload {
@@ -35,10 +35,15 @@ struct MainConnected {
     personIsVisible: bool,
 }
 
-#[derive(Clone, serde::Serialize)]
-enum WebDesktopEvent {
-    DesktopChanged(WebDesktop),
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+struct DesktopNameChanged {
+    name: String,
 }
+
+// #[derive(Clone, serde::Serialize)]
+// enum WebDesktopEvent {
+//     DesktopChanged(WebDesktop),
+// }
 
 fn start_desktop_event_thread(window: &Window) {
     use winvd::{listen_desktop_events, Desktop, DesktopEvent};
@@ -100,7 +105,7 @@ fn main() {
             // });
             window.listen("desktopNameChanged", |ev| {
                 if let Some(str) = ev.payload() {
-                    if let Ok(desktop) = serde_json::from_str::<WebDesktop>(str) {
+                    if let Ok(desktop) = serde_json::from_str::<DesktopNameChanged>(str) {
                         println!("Change desktop name {}", &desktop.name);
                         let _ = get_current_desktop().map(|d| d.set_name(&desktop.name));
                     }
