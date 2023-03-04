@@ -63,6 +63,8 @@ export const Timings = (p: TimingsProps) => {
         // setTimeout(() => !isFocused && p.onFocusedInput && p.onFocusedInput(false), 30);
     }, []);
 
+    console.log("Render timings", new Date().getTime());
+
     return (
         <div
             className={cns("timings", p.isLoadingTotals && "loadingTotals", p.isPaused && "paused")}
@@ -95,7 +97,7 @@ export const Timings = (p: TimingsProps) => {
                         ].join(" ")}
                     />
                 </div>
-                <div className={"today"}>{p.todayTotal.toFixed(3)}</div>
+                <div className={"today"}>{p.todayTotal.toFixed(8)}</div>
             </div>
             <div className={"eightWeek"}>
                 <div className={"count"}>{p.eightWeekTotal.toFixed(1)}</div>

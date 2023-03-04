@@ -104,10 +104,11 @@ function useAppState() {
 const app = new ProjectMonitoringApp();
 
 const App = () => {
-    const [state, setState] = useState(app.render());
+    const [state, setState] = useState(() => app.render());
     useEffect(() => {
         autorun(() => {
-            setState(app.render());
+            const vals = app.render();
+            setState(vals);
         });
     }, []);
     //const app = useAppState();

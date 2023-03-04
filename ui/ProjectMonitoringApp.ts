@@ -53,11 +53,10 @@ export class ProjectMonitoringApp {
     @observable private end = new Date();
 
     private ipcRenderer: IPCProtocol;
-    private hideAfterTimeout: any;
-    private listenerInterval: any;
-    private updateListenerInterval: any;
-    private sendDesktopNameBounceTimeout: any;
-    private refreshTypingTimeout: any;
+    private hideAfterTimeout = 0;
+    private listenerInterval = 0;
+    private updateListenerInterval = 0;
+    private sendDesktopNameBounceTimeout = 0;
     private db = new ProjectMonitoringDb();
 
     private cleanReactionClientOrProjectChanges: () => void;
@@ -107,12 +106,13 @@ export class ProjectMonitoringApp {
         clearInterval(this.updateListenerInterval);
         clearTimeout(this.hideAfterTimeout);
         clearTimeout(this.sendDesktopNameBounceTimeout);
-        clearTimeout(this.refreshTypingTimeout);
         this.cleanReactionClientOrProjectChanges();
+        this.db.destroy();
     }
 
     render() {
         // let totals = this.totalsCache.get(this.currentTiming);
+        // console.log("Render app", new Date().getTime());
         const totals = this.db.getTotals(this.currentTiming);
 
         return {
@@ -172,8 +172,8 @@ export class ProjectMonitoringApp {
 
     @computed
     private get isRunning() {
-        let hasClientValue = !!this.client;
-        let hasProjectValue = !!this.project;
+        const hasClientValue = !!this.client;
+        const hasProjectValue = !!this.project;
 
         if (this.personDetectorConnected) {
             return (
@@ -209,11 +209,6 @@ export class ProjectMonitoringApp {
         newValue: { client: string; project: string; isRunning: boolean },
         oldValue: { client: string; project: string; isRunning: boolean }
     ) => {
-        // Update the totals from the cache or database, to avoid typing client
-        // or project from spamming requests there is timeout
-        clearTimeout(this.refreshTypingTimeout);
-        this.refreshTypingTimeout = setTimeout(() => this.db.refreshTotals(newValue), 333);
-
         // If the last value was running, store it
         if (oldValue.isRunning) {
             this.db.addOrUpdateTiming({
@@ -247,7 +242,7 @@ export class ProjectMonitoringApp {
         if (!this.client || !this.project) {
             return;
         }
-        let i = this.pausedProjects.findIndex(
+        const i = this.pausedProjects.findIndex(
             (f) => f.client === this.client && f.project === this.project
         );
         if (i === -1) {
