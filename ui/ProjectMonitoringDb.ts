@@ -42,10 +42,20 @@ export class ProjectMonitoringDb {
         ProjectAndClient,
         Map<StartTimestamp, PersistedTiming>
     >(new Map());
-    private _storedTotals = new Map<
+    private _loadedTotals = new Map<
         string, // client~project
         Totals
     >();
+    private _sentTotals = asDefaultMap<
+        string, // client~project
+        Totals
+    >({
+        todayTotal: 0,
+        thisWeekTotal: 0,
+        lastWeekTotal: 0,
+        eightWeekTotal: 0,
+        total: 0,
+    });
     private storeToServiceInterval = 0;
     private refreshTypingTimeout = 0;
 
@@ -53,7 +63,7 @@ export class ProjectMonitoringDb {
         makeObservable(this);
         this.storeToServiceInterval = setInterval(
             this._storeTimingsToService,
-            ENV == "production" ? 5 * 60000 : 30000 // 5 minutes = production, 30 seconds = development
+            ENV == "production" ? 5 * 60000 : 5000 // 5 minutes = production, 30 seconds = development
         );
     }
 
@@ -63,14 +73,15 @@ export class ProjectMonitoringDb {
     }
 
     _refreshTotals = ({ client, project }: { client: string; project: string }): Promise<void> => {
-        // TODO: Get totals from API
         console.log("Refresh totals", client, project);
 
         return new Promise((resolve) => {
             runInAction(() => (this.isLoadingTotals = true));
+
+            // TODO: Get totals from API
             setTimeout(() => {
                 resolve();
-                this._storedTotals.set(`${client}~${project}`, {
+                this._loadedTotals.set(`${client}~${project}`, {
                     todayTotal: 1,
                     thisWeekTotal: 1,
                     lastWeekTotal: 0,
@@ -83,7 +94,7 @@ export class ProjectMonitoringDb {
     };
 
     public getTotals = (timing: { client: string; project: string }): Totals => {
-        let initialTotals = this._storedTotals.get(`${timing.client}~${timing.project}`);
+        let initialTotals = this._loadedTotals.get(`${timing.client}~${timing.project}`);
         if (!initialTotals) {
             initialTotals = {
                 todayTotal: 0,
@@ -98,6 +109,8 @@ export class ProjectMonitoringDb {
                 333
             );
         }
+
+        let sentTotals = this._sentTotals.getDefault(`${timing.client}~${timing.project}`);
         // console.log("getTotals", timing.client, timing.project);
 
         // const timings = this._getTimingsByClientAndProject(timing);
@@ -107,11 +120,21 @@ export class ProjectMonitoringDb {
         const splittedTotals = splitTotals(timings);
 
         return {
-            lastWeekTotal: splittedTotals.lastWeekTotal + initialTotals.lastWeekTotal,
-            thisWeekTotal: splittedTotals.thisWeekTotal + initialTotals.thisWeekTotal,
-            eightWeekTotal: splittedTotals.eightWeekTotal + initialTotals.eightWeekTotal,
-            todayTotal: splittedTotals.todayTotal + initialTotals.todayTotal,
-            total: splittedTotals.total + initialTotals.total,
+            lastWeekTotal:
+                splittedTotals.lastWeekTotal +
+                sentTotals.lastWeekTotal +
+                initialTotals.lastWeekTotal,
+            thisWeekTotal:
+                splittedTotals.thisWeekTotal +
+                sentTotals.thisWeekTotal +
+                initialTotals.thisWeekTotal,
+            eightWeekTotal:
+                splittedTotals.eightWeekTotal +
+                sentTotals.eightWeekTotal +
+                initialTotals.eightWeekTotal,
+            todayTotal:
+                splittedTotals.todayTotal + sentTotals.todayTotal + initialTotals.todayTotal,
+            total: splittedTotals.total + sentTotals.total + initialTotals.total,
         };
     };
 
@@ -150,7 +173,24 @@ export class ProjectMonitoringDb {
         try {
             // TODO:
             await Api.timings.post(timings);
+
+            console.log("Stored timings", timings);
+
+            // Do not remove the last timing, it might be still running
+            timings.pop();
             this._deleteTimings(timings);
+            console.log("Stored timings after", [...this._getTimings()]);
+
+            // Update totals
+            for (const t of timings) {
+                const totals = splitTotals([t]);
+                const oldTotals = this._sentTotals.setDefault(`${t.client}~${t.project}`);
+                oldTotals.eightWeekTotal += totals.eightWeekTotal;
+                oldTotals.lastWeekTotal += totals.lastWeekTotal;
+                oldTotals.thisWeekTotal += totals.thisWeekTotal;
+                oldTotals.todayTotal += totals.todayTotal;
+                oldTotals.total += totals.total;
+            }
         } catch (e) {
             console.error("storeTimingsToService:", e);
         }
