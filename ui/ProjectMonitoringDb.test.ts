@@ -3,11 +3,12 @@ import { ProjectMonitoringDb } from "./ProjectMonitoringDb.ts";
 
 Deno.test("ProjectMonitoringDb", () => {
     const db = new ProjectMonitoringDb();
-    const timings = db._getTimings();
+    const timings = [...db._getTimings()];
     assertEquals(timings, []);
+    db.destroy();
 });
 
-Deno.test("getTimingsByClientAndProject", () => {
+Deno.test("_getTimings", () => {
     const db = new ProjectMonitoringDb();
     db.addOrUpdateTiming({
         client: "client1",
@@ -21,15 +22,25 @@ Deno.test("getTimingsByClientAndProject", () => {
         start: new Date(900000),
         end: new Date(950000),
     });
-    const timings = db._getTimingsByClientAndProject({ client: "client2", project: "project2" });
-    assertEquals(timings, [
-        {
-            client: "client2",
-            project: "project2",
-            start: new Date(900000),
-            end: new Date(950000),
-        },
-    ]);
+    const timings = db._getTimings();
+    assertEquals(
+        [...timings],
+        [
+            {
+                client: "client1",
+                project: "project1",
+                start: new Date(800000),
+                end: new Date(900000),
+            },
+            {
+                client: "client2",
+                project: "project2",
+                start: new Date(900000),
+                end: new Date(950000),
+            },
+        ]
+    );
+    db.destroy();
 });
 
 Deno.test("addOrUpdateTiming", () => {
@@ -51,12 +62,12 @@ Deno.test("addOrUpdateTiming", () => {
     });
 
     db.addOrUpdateTiming({
-        client: "new client",
-        project: "new project",
+        client: "client1",
+        project: "project1",
         start: new Date(800000),
         end: new Date(950000),
     });
-    const timings = db._getTimings();
+    const timings = [...db._getTimings()];
 
     // Only the last one is updated
     assertEquals(timings, [
@@ -67,12 +78,13 @@ Deno.test("addOrUpdateTiming", () => {
             end: new Date(800000),
         },
         {
-            client: "new client",
-            project: "new project",
+            client: "client1",
+            project: "project1",
             start: new Date(800000),
             end: new Date(950000),
         },
     ]);
+    db.destroy();
 });
 
 Deno.test("deleteTimings", () => {
@@ -102,7 +114,7 @@ Deno.test("deleteTimings", () => {
         },
     ]);
 
-    const timings = db._getTimings();
+    const timings = [...db._getTimings()];
 
     // Only the last one is left
     assertEquals(timings, [
@@ -113,4 +125,5 @@ Deno.test("deleteTimings", () => {
             end: new Date(900000),
         },
     ]);
+    db.destroy();
 });

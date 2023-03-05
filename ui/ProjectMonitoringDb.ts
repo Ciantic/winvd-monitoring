@@ -9,9 +9,10 @@ import {
     autorun,
     IObservableArray,
 } from "https://esm.sh/mobx";
-import _, { filter } from "https://cdn.skypack.dev/lodash?dts";
+import _, { filter, split } from "https://cdn.skypack.dev/lodash?dts";
 import { asDefaultMap } from "./utils/asDefaultMap.ts";
 import { Api } from "./Api.ts";
+import { splitTotals } from "./utils/splitTotals.ts";
 
 interface PersistedTiming {
     client: string;
@@ -29,26 +30,24 @@ interface Totals {
 }
 
 type StartTimestamp = number;
+type ProjectAndClient = string;
 
 const ENV = "development" as "development" | "production";
 const IS_DEBUG = true;
 
 export class ProjectMonitoringDb {
     @observable public isLoadingTotals = false;
-    private _timings = observable.array<PersistedTiming>([]);
-    private _timingsAsMap = observable.map<StartTimestamp, PersistedTiming>();
-    private _storedTotals = asDefaultMap<
+
+    private _timingsAsProjectAndClient = asDefaultMap<
+        ProjectAndClient,
+        Map<StartTimestamp, PersistedTiming>
+    >(new Map());
+    private _storedTotals = new Map<
         string, // client~project
         Totals
-    >({
-        todayTotal: 0,
-        thisWeekTotal: 0,
-        lastWeekTotal: 0,
-        eightWeekTotal: 0,
-        total: 0,
-    });
-    private storeToServiceInterval: number;
-    private refreshTypingTimeout: number = 0;
+    >();
+    private storeToServiceInterval = 0;
+    private refreshTypingTimeout = 0;
 
     constructor() {
         makeObservable(this);
@@ -58,12 +57,13 @@ export class ProjectMonitoringDb {
         );
     }
 
-    destroy() {
+    public destroy() {
         if (this.storeToServiceInterval) clearInterval(this.storeToServiceInterval);
         if (this.refreshTypingTimeout) clearTimeout(this.refreshTypingTimeout);
     }
 
     _refreshTotals = ({ client, project }: { client: string; project: string }): Promise<void> => {
+        // TODO: Get totals from API
         console.log("Refresh totals", client, project);
 
         return new Promise((resolve) => {
@@ -82,8 +82,7 @@ export class ProjectMonitoringDb {
         });
     };
 
-    public getTotals = (timing: PersistedTiming): Totals => {
-        // TODO: Get totals from API
+    public getTotals = (timing: { client: string; project: string }): Totals => {
         let initialTotals = this._storedTotals.get(`${timing.client}~${timing.project}`);
         if (!initialTotals) {
             initialTotals = {
@@ -101,20 +100,18 @@ export class ProjectMonitoringDb {
         }
         // console.log("getTotals", timing.client, timing.project);
 
-        let timings = this._getTimingsByClientAndProject(timing);
-        // Sum lengths of all timings
-        let allLengths =
-            timings.reduce((acc, t) => {
-                return acc + (t.end.getTime() - t.start.getTime());
-            }, 0) / 3600000;
+        // const timings = this._getTimingsByClientAndProject(timing);
+        const timings = this._timingsAsProjectAndClient
+            .getDefault(`${timing.client}~${timing.project}`)
+            .values();
+        const splittedTotals = splitTotals(timings);
 
-        const length = allLengths + (timing.end.getTime() - timing.start.getTime()) / 3600000;
         return {
-            lastWeekTotal: initialTotals.lastWeekTotal,
-            thisWeekTotal: length + initialTotals.thisWeekTotal,
-            eightWeekTotal: length + initialTotals.eightWeekTotal,
-            todayTotal: length + initialTotals.todayTotal,
-            total: length + initialTotals.total,
+            lastWeekTotal: splittedTotals.lastWeekTotal + initialTotals.lastWeekTotal,
+            thisWeekTotal: splittedTotals.thisWeekTotal + initialTotals.thisWeekTotal,
+            eightWeekTotal: splittedTotals.eightWeekTotal + initialTotals.eightWeekTotal,
+            todayTotal: splittedTotals.todayTotal + initialTotals.todayTotal,
+            total: splittedTotals.total + initialTotals.total,
         };
     };
 
@@ -123,62 +120,43 @@ export class ProjectMonitoringDb {
     //     return initialTotals;
     // };
 
-    _getTimings = (): PersistedTiming[] => {
-        // return this._timingsAsMap.values();
-        return this._timings.toJSON();
-    };
-
-    _getTimingsByClientAndProject = ({
-        client,
-        project,
-    }: {
-        client: string;
-        project: string;
-    }): PersistedTiming[] => {
-        return filter(
-            this._timings,
-            (timing) => timing.client === client && timing.project === project
-        );
-    };
+    *_getTimings(): Iterable<PersistedTiming> {
+        for (const map of this._timingsAsProjectAndClient.values()) {
+            for (const value of map.values()) {
+                yield value;
+            }
+        }
+    }
 
     addOrUpdateTiming = (timing: PersistedTiming) => {
-        let existing = filter(this._timings, (t) => t.start.getTime() === timing.start.getTime());
-        if (existing.length >= 1) {
-            for (const t of existing) {
-                t.client = timing.client;
-                t.project = timing.project;
-                t.end = timing.end;
-                console.log("update existing", timing.client, timing.project);
-            }
-        } else {
-            const len = timing.end.getTime() - timing.start.getTime();
-
-            console.log("timings", JSON.parse(JSON.stringify(this._timings)));
-            console.log("try to store", timing.client, timing.project, len);
-            this._timings.push(timing);
-        }
+        console.log("addOrUpdateTiming", timing);
+        this._timingsAsProjectAndClient
+            .setDefault(`${timing.client}~${timing.project}`)
+            .set(timing.start.getTime(), timing);
     };
 
     _deleteTimings = (timings: PersistedTiming[]) => {
-        const deleteStartTimes = timings.map((t) => t.start.getTime());
-        this._timings.replace(
-            filter(this._timings, (t) => !deleteStartTimes.includes(t.start.getTime()))
-        );
+        for (const t of timings) {
+            this._timingsAsProjectAndClient
+                .get(`${t.client}~${t.project}`)
+                ?.delete(t.start.getTime());
+        }
     };
 
     private _storeTimingsToService = async () => {
         // TODO: Get all but the last?
-        const timings = this._getTimings();
+        const timings = [...this._getTimings()];
 
         try {
             // TODO:
             await Api.timings.post(timings);
-            // this._deleteTimings(timings);
+            this._deleteTimings(timings);
         } catch (e) {
             console.error("storeTimingsToService:", e);
         }
     };
 
+    /*
     public storeCurrentTiming = async (timing: PersistedTiming) => {
         const len = timing.end.getTime() - timing.start.getTime();
         if (IS_DEBUG) {
@@ -191,4 +169,5 @@ export class ProjectMonitoringDb {
             this.addOrUpdateTiming(timing);
         }
     };
+    */
 }

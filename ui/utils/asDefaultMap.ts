@@ -3,23 +3,41 @@ export class DefaultMap<K, V> extends Map<K, V> {
         super();
     }
 
+    // Same as getDefault but with a mutable return type
     setDefault(key: K): V {
         let v = this.get(key);
         if (typeof v === "undefined") {
-            let copyDefaultValue =
-                typeof this.defaultValue === "object"
-                    ? Object.assign({}, this.defaultValue)
-                    : this.defaultValue;
+            let copyDefaultValue;
+            if (this.defaultValue instanceof Map && this.defaultValue.size === 0) {
+                copyDefaultValue = new Map() as V;
+            } else if (this.defaultValue instanceof Set && this.defaultValue.size === 0) {
+                copyDefaultValue = new Set() as V;
+            } else {
+                copyDefaultValue =
+                    typeof this.defaultValue === "object"
+                        ? Object.assign({}, this.defaultValue)
+                        : this.defaultValue;
+            }
             this.set(key, copyDefaultValue);
             return this.get(key) || copyDefaultValue;
         }
         return v;
     }
 
+    setWithOldValue(key: K, value: (old: V) => V): V {
+        
+    }
+
     // It's not feasible to modify the value of getDefault
-    getDefault(key: K): V {
+    getDefault(key: K): Readonly<V> {
         let v = this.get(key);
         if (typeof v === "undefined") {
+            if (this.defaultValue instanceof Map && this.defaultValue.size === 0) {
+                return new Map() as V;
+            }
+            if (this.defaultValue instanceof Set && this.defaultValue.size === 0) {
+                return new Set() as V;
+            }
             return typeof this.defaultValue === "object"
                 ? Object.assign({}, this.defaultValue)
                 : this.defaultValue;

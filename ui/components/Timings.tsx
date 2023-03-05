@@ -100,15 +100,15 @@ export const Timings = (p: TimingsProps) => {
                 <div className={"today"}>{p.todayTotal.toFixed(8)}</div>
             </div>
             <div className={"eightWeek"}>
-                <div className={"count"}>{p.eightWeekTotal.toFixed(1)}</div>
+                <div className={"count"}>{p.eightWeekTotal.toFixed(8)}</div>
                 <div className={"text"}>{Lang.eightWeek}</div>
             </div>
             <div className={"lastWeek"}>
-                <div className={"count"}>{p.lastWeekTotal.toFixed(1)}</div>
+                <div className={"count"}>{p.lastWeekTotal.toFixed(8)}</div>
                 <div className={"text"}>{Lang.lastWeek}</div>
             </div>
             <div className={"thisWeek"}>
-                <div className={"count"}>{p.thisWeekTotal.toFixed(1)}</div>
+                <div className={"count"}>{p.thisWeekTotal.toFixed(8)}</div>
                 <div className={"text"}>{Lang.thisWeek}</div>
             </div>
         </div>

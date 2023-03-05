@@ -111,8 +111,6 @@ export class ProjectMonitoringApp {
     }
 
     render() {
-        // let totals = this.totalsCache.get(this.currentTiming);
-        // console.log("Render app", new Date().getTime());
         const totals = this.db.getTotals(this.currentTiming);
 
         return {
@@ -161,6 +159,9 @@ export class ProjectMonitoringApp {
     private tick = () => {
         if (this.isRunning) {
             this.end = new Date();
+
+            // TODO: DOES THIS WORK!
+            this.db.addOrUpdateTiming(this.currentTiming);
         }
     };
 
@@ -196,12 +197,15 @@ export class ProjectMonitoringApp {
 
     @computed
     private get currentTiming() {
-        return {
+        const v = {
             client: this.client,
             project: this.project,
             start: new Date(this.start.getTime()),
             end: new Date(this.end.getTime()),
         };
+
+        // this.db.addOrUpdateTiming(v);
+        return v;
     }
 
     @action
@@ -217,12 +221,6 @@ export class ProjectMonitoringApp {
                 start: new Date(this.start.getTime()),
                 end: new Date(), // Current time
             });
-            // db.storeCurrentTiming({
-            //     client: oldValue.client,
-            //     project: oldValue.project,
-            //     start: new Date(this.start.getTime()),
-            //     end: new Date(), // Current time
-            // });
         }
 
         // Running changes
