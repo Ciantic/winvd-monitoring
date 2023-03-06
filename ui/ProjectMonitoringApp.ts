@@ -20,9 +20,9 @@ import {
     action,
     flow,
     autorun,
+    runInAction,
 } from "https://esm.sh/mobx";
 import { Api } from "./Api.ts";
-import { asDefaultMap } from "./utils/asDefaultMap.ts";
 import { IPCProtocol, TauriProtocol } from "./IpcProtocol.ts";
 import { ProjectMonitoringDb } from "./ProjectMonitoringDb.ts";
 import { reactionWithOldValue } from "./utils/reactionWithOldValue.ts";
@@ -49,13 +49,19 @@ export class ProjectMonitoringApp {
         client: string;
         project: string;
     }[] = [];
-    @observable private start = new Date();
-    @observable private end = new Date();
+    @observable private isLoadingTotals = false;
+    @observable private totals = {
+        todayTotal: 0,
+        thisWeekTotal: 0,
+        lastWeekTotal: 0,
+        eightWeekTotal: 0,
+        total: 0,
+    };
 
     private ipcRenderer: IPCProtocol;
     private hideAfterTimeout = 0;
     private listenerInterval = 0;
-    private updateListenerInterval = 0;
+    private updateTotalsTimeout = 0;
     private sendDesktopNameBounceTimeout = 0;
     private db = new ProjectMonitoringDb();
 
@@ -80,11 +86,11 @@ export class ProjectMonitoringApp {
 
         this.listenerInterval = setInterval(this.tick, 1000);
 
-        this.updateListenerInterval = setInterval(() => {
-            if (this.isRunning) {
-                this.db.addOrUpdateTiming(this.currentTiming);
-            }
-        }, 30000);
+        // this.updateListenerInterval = setInterval(() => {
+        //     if (this.isRunning) {
+        //         this.db.addOrUpdateTiming(this.currentTiming);
+        //     }
+        // }, 30000);
         this.cleanReactionClientOrProjectChanges = reactionWithOldValue(
             {
                 client: "",
@@ -103,16 +109,14 @@ export class ProjectMonitoringApp {
     destroy() {
         // Call this on componentWillUnmount
         clearInterval(this.listenerInterval);
-        clearInterval(this.updateListenerInterval);
         clearTimeout(this.hideAfterTimeout);
         clearTimeout(this.sendDesktopNameBounceTimeout);
+        clearTimeout(this.updateTotalsTimeout);
         this.cleanReactionClientOrProjectChanges();
         this.db.destroy();
     }
 
     render() {
-        const totals = this.db.getTotals(this.currentTiming);
-
         return {
             // currentDesktop: this.currentDesktop,
             clientName: this.client,
@@ -123,11 +127,11 @@ export class ProjectMonitoringApp {
             onChangeProject: this.onChangeProject,
             personDetectorConnected: this.personDetectorConnected,
             onFocusedInput: this.onFocusedInput,
-            isLoadingTotals: this.db.isLoadingTotals,
-            todayTotal: totals.todayTotal,
-            thisWeekTotal: totals.thisWeekTotal,
-            lastWeekTotal: totals.lastWeekTotal,
-            eightWeekTotal: totals.eightWeekTotal,
+            isLoadingTotals: this.isLoadingTotals,
+            todayTotal: this.totals.todayTotal,
+            thisWeekTotal: this.totals.thisWeekTotal,
+            lastWeekTotal: this.totals.lastWeekTotal,
+            eightWeekTotal: this.totals.eightWeekTotal,
             onClickPlayPause: this.onClickPlayPause,
         };
     }
@@ -157,11 +161,34 @@ export class ProjectMonitoringApp {
 
     @action
     private tick = () => {
-        if (this.isRunning) {
-            this.end = new Date();
+        if (!this.isRunning) {
+            return;
+        }
+        this.updateTotals();
+    };
 
-            // TODO: DOES THIS WORK!
-            this.db.addOrUpdateTiming(this.currentTiming);
+    @action
+    private updateTotals = (loadApiTotals = true) => {
+        const { totals, loadingTotals } = this.db.getTotals(
+            {
+                client: this.client,
+                project: this.project,
+            },
+            loadApiTotals
+        );
+
+        this.totals = totals;
+
+        // Wait for totals to load, and refresh totals again
+        if (loadingTotals) {
+            this.isLoadingTotals = true;
+            loadingTotals.then(() => {
+                runInAction(() => {
+                    this.isLoadingTotals = false;
+                });
+                console.log("REFRESH AGAIN", this.client, this.project);
+                this.updateTotals();
+            });
         }
     };
 
@@ -195,32 +222,24 @@ export class ProjectMonitoringApp {
         );
     }
 
-    @computed
-    private get currentTiming() {
-        const v = {
-            client: this.client,
-            project: this.project,
-            start: new Date(this.start.getTime()),
-            end: new Date(this.end.getTime()),
-        };
-
-        // this.db.addOrUpdateTiming(v);
-        return v;
-    }
-
     @action
     private clientOrProjectOrRunningChanges = (
         newValue: { client: string; project: string; isRunning: boolean },
         oldValue: { client: string; project: string; isRunning: boolean }
     ) => {
+        const now = new Date();
         // If the last value was running, store it
         if (oldValue.isRunning) {
-            this.db.addOrUpdateTiming({
-                client: oldValue.client,
-                project: oldValue.project,
-                start: new Date(this.start.getTime()),
-                end: new Date(), // Current time
-            });
+            this.db.stopTiming(now);
+        }
+        if (newValue.isRunning) {
+            this.db.startTiming(
+                {
+                    client: this.client,
+                    project: this.project,
+                },
+                now
+            );
         }
 
         // Running changes
@@ -231,8 +250,14 @@ export class ProjectMonitoringApp {
             this.ipcRenderer.send("projectMonitoringIsRunningChanged", newValue.isRunning);
         }
 
-        // Reset the timing
-        this.reset();
+        this.updateTotals(false);
+
+        // Update API totals after a timeout, to avoid throttling
+        clearTimeout(this.updateTotalsTimeout);
+        this.updateTotalsTimeout = setTimeout(() => {
+            console.log("Update after timeout");
+            this.updateTotals();
+        }, 333);
     };
 
     @action
@@ -251,12 +276,6 @@ export class ProjectMonitoringApp {
         } else {
             this.pausedProjects.splice(i, 1);
         }
-    }
-
-    @action
-    private reset() {
-        this.start = new Date();
-        this.end = new Date();
     }
 
     @action

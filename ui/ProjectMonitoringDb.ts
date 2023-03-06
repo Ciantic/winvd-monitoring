@@ -1,17 +1,4 @@
-// import Dexie from "https://esm.sh/dexie";
-import {
-    makeObservable,
-    observable,
-    computed,
-    action,
-    runInAction,
-    flow,
-    autorun,
-    IObservableArray,
-} from "https://esm.sh/mobx";
-import _, { filter, split } from "https://cdn.skypack.dev/lodash?dts";
 import { asDefaultMap } from "./utils/asDefaultMap.ts";
-import { Api } from "./Api.ts";
 import { splitTotals } from "./utils/splitTotals.ts";
 
 interface PersistedTiming {
@@ -20,7 +7,6 @@ interface PersistedTiming {
     start: Date;
     end: Date;
 }
-
 interface Totals {
     todayTotal: number;
     thisWeekTotal: number;
@@ -29,185 +15,189 @@ interface Totals {
     total: number;
 }
 
+function sumTwoTotals(a: Totals, b: Totals) {
+    return {
+        todayTotal: a.todayTotal + b.todayTotal,
+        thisWeekTotal: a.thisWeekTotal + b.thisWeekTotal,
+        lastWeekTotal: a.lastWeekTotal + b.lastWeekTotal,
+        eightWeekTotal: a.eightWeekTotal + b.eightWeekTotal,
+        total: a.total + b.total,
+    };
+}
+
+function sumNTotals(...totals: Totals[]) {
+    return totals.reduce(sumTwoTotals);
+}
+
 type StartTimestamp = number;
 type ProjectAndClient = string;
-
-const ENV = "development" as "development" | "production";
-const IS_DEBUG = true;
+function key(client: string, project: string) {
+    return `${client}~${project}`;
+}
 
 export class ProjectMonitoringDb {
-    @observable public isLoadingTotals = false;
-
-    private _timingsAsProjectAndClient = asDefaultMap<
+    private client = "";
+    private project = "";
+    private start?: Date;
+    private timingsAsProjectAndClient = asDefaultMap<
         ProjectAndClient,
-        Map<StartTimestamp, PersistedTiming>
-    >(new Map());
-    private _loadedTotals = new Map<
-        string, // client~project
-        Totals
-    >();
-    private _sentTotals = asDefaultMap<
-        string, // client~project
-        Totals
-    >({
-        todayTotal: 0,
-        thisWeekTotal: 0,
-        lastWeekTotal: 0,
-        eightWeekTotal: 0,
-        total: 0,
-    });
-    private storeToServiceInterval = 0;
-    private refreshTypingTimeout = 0;
+        {
+            totals: Totals;
+            timings: Map<StartTimestamp, PersistedTiming>;
+        }
+    >(() => ({
+        totals: {
+            todayTotal: 0,
+            thisWeekTotal: 0,
+            lastWeekTotal: 0,
+            eightWeekTotal: 0,
+            total: 0,
+        },
+        timings: new Map(),
+    }));
 
-    constructor() {
-        makeObservable(this);
-        this.storeToServiceInterval = setInterval(
-            this._storeTimingsToService,
-            ENV == "production" ? 5 * 60000 : 5000 // 5 minutes = production, 30 seconds = development
-        );
+    constructor() {}
+
+    public destroy() {}
+
+    public startTiming({ client, project }: { client: string; project: string }, now = new Date()) {
+        console.log("Start timing", client, project);
+        if (this.start) {
+            throw new Error("Already timing");
+        }
+        this.client = client;
+        this.project = project;
+        this.start = new Date(now);
     }
 
-    public destroy() {
-        if (this.storeToServiceInterval) clearInterval(this.storeToServiceInterval);
-        if (this.refreshTypingTimeout) clearTimeout(this.refreshTypingTimeout);
+    public stopTiming(now = new Date()) {
+        console.log("Stop timing");
+        if (this.start) {
+            this.insertTiming({
+                client: this.client,
+                project: this.project,
+                start: this.start,
+                end: now,
+            });
+            this.start = undefined;
+        } else {
+            throw new Error("Not timing");
+        }
     }
 
-    _refreshTotals = ({ client, project }: { client: string; project: string }): Promise<void> => {
-        console.log("Refresh totals", client, project);
+    private insertTiming(timing: PersistedTiming) {
+        console.log("Insert timing", timing, this.timingsAsProjectAndClient);
+        const k = key(timing.client, timing.project);
+        const timings = this.timingsAsProjectAndClient.getDefault(k).timings;
+        const totals = this.timingsAsProjectAndClient.getDefault(k).totals;
+        const splittedTotals = splitTotals([timing]);
 
-        return new Promise((resolve) => {
-            runInAction(() => (this.isLoadingTotals = true));
+        // Insert timing
+        timings.set(timing.start.getTime(), timing);
 
-            // TODO: Get totals from API
-            setTimeout(() => {
-                resolve();
-                this._loadedTotals.set(`${client}~${project}`, {
-                    todayTotal: 1,
-                    thisWeekTotal: 1,
-                    lastWeekTotal: 0,
-                    eightWeekTotal: 1,
-                    total: 1,
-                });
-                runInAction(() => (this.isLoadingTotals = false));
-            }, 1500);
-        });
-    };
+        // Update totals
+        totals.todayTotal += splittedTotals.todayTotal;
+        totals.thisWeekTotal += splittedTotals.thisWeekTotal;
+        totals.lastWeekTotal += splittedTotals.lastWeekTotal;
+        totals.eightWeekTotal += splittedTotals.eightWeekTotal;
+        totals.total += splittedTotals.total;
+    }
 
-    public getTotals = (timing: { client: string; project: string }): Totals => {
-        let initialTotals = this._loadedTotals.get(`${timing.client}~${timing.project}`);
-        if (!initialTotals) {
-            initialTotals = {
+    public getTotals(
+        { client, project }: { client: string; project: string },
+        loadApiTotals = true,
+        now = new Date()
+    ): {
+        totals: Totals;
+        loadingTotals?: Promise<void>;
+    } {
+        console.log("Load totals", client, project, loadApiTotals);
+        const storedTotals = this.timingsAsProjectAndClient.getDefault(key(client, project)).totals;
+        const currentTotals = this.getCurrentTotal({ client, project }, now);
+        const apiTotals = this.getTotalsFromApi({ client, project }, loadApiTotals);
+        if (apiTotals instanceof Promise) {
+            return {
+                totals: sumNTotals(storedTotals, currentTotals),
+                loadingTotals: apiTotals.then(() => {}),
+            };
+        }
+        return {
+            totals: sumNTotals(storedTotals, currentTotals, apiTotals),
+        };
+    }
+
+    private getCurrentTotal(
+        { client, project }: { client: string; project: string },
+        now = new Date()
+    ): Totals {
+        if (this.client === client && this.project === project && this.start) {
+            return splitTotals([{ start: this.start, end: now }]);
+        }
+        return {
+            todayTotal: 0,
+            thisWeekTotal: 0,
+            lastWeekTotal: 0,
+            eightWeekTotal: 0,
+            total: 0,
+        };
+    }
+
+    private getTotalsFromApiCache = new Map<ProjectAndClient, Totals>();
+    private tempApiCallCache = new Map<ProjectAndClient, Promise<Totals>>();
+
+    private getTotalsFromApi(
+        {
+            client,
+            project,
+        }: {
+            client: string;
+            project: string;
+        },
+        loadApiTotals = true
+    ): Promise<Totals> | Totals {
+        const kv = key(client, project);
+        // Get the API value from cache
+        const cachedValue = this.getTotalsFromApiCache.get(kv);
+        if (cachedValue) {
+            return cachedValue;
+        }
+
+        if (!loadApiTotals) {
+            return {
                 todayTotal: 0,
                 thisWeekTotal: 0,
                 lastWeekTotal: 0,
                 eightWeekTotal: 0,
                 total: 0,
             };
-            clearTimeout(this.refreshTypingTimeout);
-            this.refreshTypingTimeout = setTimeout(
-                () => this._refreshTotals({ client: timing.client, project: timing.project }),
-                333
-            );
         }
 
-        let sentTotals = this._sentTotals.getDefault(`${timing.client}~${timing.project}`);
-        // console.log("getTotals", timing.client, timing.project);
+        console.log("HIT DB", kv);
 
-        // const timings = this._getTimingsByClientAndProject(timing);
-        const timings = this._timingsAsProjectAndClient
-            .getDefault(`${timing.client}~${timing.project}`)
-            .values();
-        const splittedTotals = splitTotals(timings);
-
-        return {
-            lastWeekTotal:
-                splittedTotals.lastWeekTotal +
-                sentTotals.lastWeekTotal +
-                initialTotals.lastWeekTotal,
-            thisWeekTotal:
-                splittedTotals.thisWeekTotal +
-                sentTotals.thisWeekTotal +
-                initialTotals.thisWeekTotal,
-            eightWeekTotal:
-                splittedTotals.eightWeekTotal +
-                sentTotals.eightWeekTotal +
-                initialTotals.eightWeekTotal,
-            todayTotal:
-                splittedTotals.todayTotal + sentTotals.todayTotal + initialTotals.todayTotal,
-            total: splittedTotals.total + sentTotals.total + initialTotals.total,
-        };
-    };
-
-    // getTotalsByClientAndProject = (client: string, project: string): Totals => {
-    //     let initialTotals = this._initialTotals.getDefault(`${client}~${project}`);
-    //     return initialTotals;
-    // };
-
-    *_getTimings(): Iterable<PersistedTiming> {
-        for (const map of this._timingsAsProjectAndClient.values()) {
-            for (const value of map.values()) {
-                yield value;
-            }
+        if (this.tempApiCallCache.has(kv)) {
+            return this.tempApiCallCache.get(kv)!;
         }
+
+        // Simulate API call
+        const apiCall = new Promise<Totals>((resolve) => {
+            setTimeout(() => {
+                const gotValue = {
+                    todayTotal: 1,
+                    thisWeekTotal: 1,
+                    lastWeekTotal: 3,
+                    eightWeekTotal: 4,
+                    total: 1,
+                };
+                // Insert gotValue to cache
+                console.log("SET VALUE FROM DB", kv);
+                this.getTotalsFromApiCache.set(kv, gotValue);
+                resolve(gotValue);
+            }, 1000);
+        });
+
+        // Insert apiCall to cache
+        this.tempApiCallCache.set(kv, apiCall);
+
+        return apiCall;
     }
-
-    addOrUpdateTiming = (timing: PersistedTiming) => {
-        console.log("addOrUpdateTiming", timing);
-        this._timingsAsProjectAndClient
-            .setDefault(`${timing.client}~${timing.project}`)
-            .set(timing.start.getTime(), timing);
-    };
-
-    _deleteTimings = (timings: PersistedTiming[]) => {
-        for (const t of timings) {
-            this._timingsAsProjectAndClient
-                .get(`${t.client}~${t.project}`)
-                ?.delete(t.start.getTime());
-        }
-    };
-
-    private _storeTimingsToService = async () => {
-        // TODO: Get all but the last?
-        const timings = [...this._getTimings()];
-
-        try {
-            // TODO:
-            await Api.timings.post(timings);
-
-            console.log("Stored timings", timings);
-
-            // Do not remove the last timing, it might be still running
-            timings.pop();
-            this._deleteTimings(timings);
-            console.log("Stored timings after", [...this._getTimings()]);
-
-            // Update totals
-            for (const t of timings) {
-                const totals = splitTotals([t]);
-                const oldTotals = this._sentTotals.setDefault(`${t.client}~${t.project}`);
-                oldTotals.eightWeekTotal += totals.eightWeekTotal;
-                oldTotals.lastWeekTotal += totals.lastWeekTotal;
-                oldTotals.thisWeekTotal += totals.thisWeekTotal;
-                oldTotals.todayTotal += totals.todayTotal;
-                oldTotals.total += totals.total;
-            }
-        } catch (e) {
-            console.error("storeTimingsToService:", e);
-        }
-    };
-
-    /*
-    public storeCurrentTiming = async (timing: PersistedTiming) => {
-        const len = timing.end.getTime() - timing.start.getTime();
-        if (IS_DEBUG) {
-            console.log(this._timings.toJSON());
-            console.log("try to store", timing.client, timing.project, len);
-        }
-        if (timing.client && timing.project && len > 3000) {
-            // await this.refreshTotals(timing);
-            // this.totalsCache.add(timing);
-            this.addOrUpdateTiming(timing);
-        }
-    };
-    */
 }

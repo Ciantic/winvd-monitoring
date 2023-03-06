@@ -1,49 +1,27 @@
 export class DefaultMap<K, V> extends Map<K, V> {
-    constructor(private defaultValue: V) {
+    constructor(private makeDefault: () => V) {
         super();
     }
 
-    // Same as getDefault but with a mutable return type
-    setDefault(key: K): V {
-        let v = this.get(key);
+    // Return type is mutable default value
+    getDefault(key: K): V {
+        const v = this.get(key);
         if (typeof v === "undefined") {
-            let copyDefaultValue;
-            if (this.defaultValue instanceof Map && this.defaultValue.size === 0) {
-                copyDefaultValue = new Map() as V;
-            } else if (this.defaultValue instanceof Set && this.defaultValue.size === 0) {
-                copyDefaultValue = new Set() as V;
-            } else {
-                copyDefaultValue =
-                    typeof this.defaultValue === "object"
-                        ? Object.assign({}, this.defaultValue)
-                        : this.defaultValue;
-            }
-            this.set(key, copyDefaultValue);
-            return this.get(key) || copyDefaultValue;
+            return this.set(key, this.makeDefault()).get(key) || this.makeDefault();
         }
         return v;
     }
 
-    setWithOldValue(key: K, value: (old: V) => V): V {
-        
-    }
+    // setWithOldValue(key: K, value: (old: V) => V): V {}
 
-    // It's not feasible to modify the value of getDefault
-    getDefault(key: K): Readonly<V> {
-        let v = this.get(key);
-        if (typeof v === "undefined") {
-            if (this.defaultValue instanceof Map && this.defaultValue.size === 0) {
-                return new Map() as V;
-            }
-            if (this.defaultValue instanceof Set && this.defaultValue.size === 0) {
-                return new Set() as V;
-            }
-            return typeof this.defaultValue === "object"
-                ? Object.assign({}, this.defaultValue)
-                : this.defaultValue;
-        }
-        return v;
-    }
+    // // It's not feasible to modify the value of getDefault
+    // getDefault(key: K): Readonly<V> {
+    //     let v = this.get(key);
+    //     if (typeof v === "undefined") {
+    //         return this.defaultValue();
+    //     }
+    //     return v;
+    // }
     toJSON() {
         const res: any = {};
         for (const [key, value] of this as any) {
@@ -61,4 +39,4 @@ function stringifyKey(key: any): string {
     if (key && key.toString) return key.toString();
     else return new String(key).toString();
 }
-export const asDefaultMap = <K, T>(defaultValue: T) => new DefaultMap<K, T>(defaultValue);
+export const asDefaultMap = <K, T>(defaultValue: () => T) => new DefaultMap<K, T>(defaultValue);
