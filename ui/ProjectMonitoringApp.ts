@@ -24,7 +24,8 @@ import {
 } from "https://esm.sh/mobx";
 import { Api } from "./Api.ts";
 import { IPCProtocol, TauriProtocol } from "./IpcProtocol.ts";
-import { ProjectMonitoringDb } from "./ProjectMonitoringDb.ts";
+import { ProjectMonitoringDb, Totals } from "./ProjectMonitoringDb.ts";
+import { cancellablePromise, CancellablePromise } from "./utils/cancellablePromise.ts";
 import { reactionWithOldValue } from "./utils/reactionWithOldValue.ts";
 
 interface Timing {
@@ -167,28 +168,60 @@ export class ProjectMonitoringApp {
         this.updateTotals();
     };
 
+    private lastUpdateFromDb?: CancellablePromise<Totals>;
+
     @action
-    private updateTotals = (loadApiTotals = true) => {
-        const { totals, loadingTotals } = this.db.getTotals(
-            {
-                client: this.client,
-                project: this.project,
-            },
-            loadApiTotals
-        );
+    private updateTotals = () => {
+        const clientAndProject = {
+            client: this.client,
+            project: this.project,
+        };
+        const { totals, updateFromDb } = this.db.getTotals(clientAndProject);
 
         this.totals = totals;
 
         // Wait for totals to load, and refresh totals again
-        if (loadingTotals) {
+        if (updateFromDb) {
             this.isLoadingTotals = true;
-            loadingTotals.then(() => {
-                runInAction(() => {
-                    this.isLoadingTotals = false;
-                });
-                console.log("REFRESH AGAIN", this.client, this.project);
-                this.updateTotals();
-            });
+
+            // Debounce database calls, only last one matters
+            clearTimeout(this.updateTotalsTimeout);
+            this.updateTotalsTimeout = setTimeout(() => {
+                // Cancel the previous promise if it's still running
+                if (this.lastUpdateFromDb) {
+                    this.lastUpdateFromDb.cancel();
+                }
+
+                this.lastUpdateFromDb = cancellablePromise(updateFromDb());
+                this.lastUpdateFromDb.promise
+                    .then(
+                        action((totals) => {
+                            console.log("Updated totals");
+                            this.isLoadingTotals = false;
+
+                            // Update totals, if client and project is still the same
+                            if (
+                                clientAndProject.client == this.client &&
+                                clientAndProject.project == this.project
+                            ) {
+                                this.totals = totals;
+                            }
+                        })
+                    )
+                    .catch(
+                        action((e) => {
+                            // If the promise was cancelled, we know that there
+                            // is another promise that took it's place and it
+                            // sets the isLoadingTotals to false
+                            if (e.message !== "Promise cancelled") {
+                                this.isLoadingTotals = false;
+                            }
+                        })
+                    );
+                // Note: finally() cannot be used here for
+                // isLoadingTotals=false because we don't want to change the
+                // value if the promise was cancelled
+            }, 300);
         }
     };
 
@@ -250,14 +283,16 @@ export class ProjectMonitoringApp {
             this.ipcRenderer.send("projectMonitoringIsRunningChanged", newValue.isRunning);
         }
 
-        this.updateTotals(false);
+        this.updateTotals();
 
-        // Update API totals after a timeout, to avoid throttling
-        clearTimeout(this.updateTotalsTimeout);
-        this.updateTotalsTimeout = setTimeout(() => {
-            console.log("Update after timeout");
-            this.updateTotals();
-        }, 333);
+        // TODO: Move throttling to inside updateTotals?
+
+        // // Update API totals after a timeout, to avoid throttling
+        // clearTimeout(this.updateTotalsTimeout);
+        // this.updateTotalsTimeout = setTimeout(() => {
+        //     console.log("Update after timeout");
+        //     this.updateTotals();
+        // }, 333);
     };
 
     @action

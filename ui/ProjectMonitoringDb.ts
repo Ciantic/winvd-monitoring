@@ -7,7 +7,7 @@ interface PersistedTiming {
     start: Date;
     end: Date;
 }
-interface Totals {
+export interface Totals {
     todayTotal: number;
     thisWeekTotal: number;
     lastWeekTotal: number;
@@ -30,8 +30,8 @@ function sumNTotals(...totals: Totals[]) {
 }
 
 type StartTimestamp = number;
-type ProjectAndClient = string;
-function key(client: string, project: string) {
+type ClientAndProjectKey = string;
+function key(client: string, project: string): ClientAndProjectKey {
     return `${client}~${project}`;
 }
 
@@ -40,7 +40,7 @@ export class ProjectMonitoringDb {
     private project = "";
     private start?: Date;
     private timingsAsProjectAndClient = asDefaultMap<
-        ProjectAndClient,
+        ClientAndProjectKey,
         {
             totals: Totals;
             timings: Map<StartTimestamp, PersistedTiming>;
@@ -105,20 +105,29 @@ export class ProjectMonitoringDb {
 
     public getTotals(
         { client, project }: { client: string; project: string },
-        loadApiTotals = true,
         now = new Date()
     ): {
         totals: Totals;
-        loadingTotals?: Promise<void>;
+
+        // `updateFromDb` is returned only if this client and project pair
+        // doesn't have database totals in cache
+        updateFromDb?: () => Promise<Totals>;
     } {
-        console.log("Load totals", client, project, loadApiTotals);
-        const storedTotals = this.timingsAsProjectAndClient.getDefault(key(client, project)).totals;
+        const kv = key(client, project);
+        // console.log("Load totals", client, project, loadApiTotals);
+        const storedTotals = this.timingsAsProjectAndClient.getDefault(kv).totals;
         const currentTotals = this.getCurrentTotal({ client, project }, now);
-        const apiTotals = this.getTotalsFromApi({ client, project }, loadApiTotals);
-        if (apiTotals instanceof Promise) {
+        const apiTotals = this.getTotalsFromApi({ client, project });
+        if (typeof apiTotals === "function") {
             return {
                 totals: sumNTotals(storedTotals, currentTotals),
-                loadingTotals: apiTotals.then(() => {}),
+                updateFromDb: () => {
+                    return apiTotals().then((updatedTotals) => {
+                        const storedTotals = this.timingsAsProjectAndClient.getDefault(kv).totals;
+                        const currentTotals = this.getCurrentTotal({ client, project }, new Date());
+                        return sumNTotals(storedTotals, currentTotals, updatedTotals);
+                    });
+                },
             };
         }
         return {
@@ -142,19 +151,16 @@ export class ProjectMonitoringDb {
         };
     }
 
-    private getTotalsFromApiCache = new Map<ProjectAndClient, Totals>();
-    private tempApiCallCache = new Map<ProjectAndClient, Promise<Totals>>();
+    private getTotalsFromApiCache = new Map<ClientAndProjectKey, Totals>();
+    private tempApiCallCache = new Map<ClientAndProjectKey, Promise<Totals>>();
 
-    private getTotalsFromApi(
-        {
-            client,
-            project,
-        }: {
-            client: string;
-            project: string;
-        },
-        loadApiTotals = true
-    ): Promise<Totals> | Totals {
+    private getTotalsFromApi({
+        client,
+        project,
+    }: {
+        client: string;
+        project: string;
+    }): Totals | (() => Promise<Totals>) {
         const kv = key(client, project);
         // Get the API value from cache
         const cachedValue = this.getTotalsFromApiCache.get(kv);
@@ -162,42 +168,23 @@ export class ProjectMonitoringDb {
             return cachedValue;
         }
 
-        if (!loadApiTotals) {
-            return {
-                todayTotal: 0,
-                thisWeekTotal: 0,
-                lastWeekTotal: 0,
-                eightWeekTotal: 0,
-                total: 0,
-            };
-        }
-
-        console.log("HIT DB", kv);
-
-        if (this.tempApiCallCache.has(kv)) {
-            return this.tempApiCallCache.get(kv)!;
-        }
-
         // Simulate API call
-        const apiCall = new Promise<Totals>((resolve) => {
-            setTimeout(() => {
-                const gotValue = {
-                    todayTotal: 1,
-                    thisWeekTotal: 1,
-                    lastWeekTotal: 3,
-                    eightWeekTotal: 4,
-                    total: 1,
-                };
-                // Insert gotValue to cache
-                console.log("SET VALUE FROM DB", kv);
-                this.getTotalsFromApiCache.set(kv, gotValue);
-                resolve(gotValue);
-            }, 1000);
-        });
-
-        // Insert apiCall to cache
-        this.tempApiCallCache.set(kv, apiCall);
-
-        return apiCall;
+        return () =>
+            new Promise<Totals>((resolve) => {
+                console.log("HIT DB", kv);
+                setTimeout(() => {
+                    const gotValue = {
+                        todayTotal: 1,
+                        thisWeekTotal: 1,
+                        lastWeekTotal: 3,
+                        eightWeekTotal: 4,
+                        total: 1,
+                    };
+                    // Insert gotValue to cache
+                    console.log("UPDATE DB CACHE", kv);
+                    this.getTotalsFromApiCache.set(kv, gotValue);
+                    resolve(gotValue);
+                }, 1000);
+            });
     }
 }

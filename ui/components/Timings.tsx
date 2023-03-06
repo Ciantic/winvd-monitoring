@@ -63,7 +63,7 @@ export const Timings = (p: TimingsProps) => {
         // setTimeout(() => !isFocused && p.onFocusedInput && p.onFocusedInput(false), 30);
     }, []);
 
-    console.log("Render timings", new Date().getTime());
+    // console.log("Render timings", new Date().getTime());
 
     return (
         <div
