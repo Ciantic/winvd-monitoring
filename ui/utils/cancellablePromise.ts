@@ -27,7 +27,11 @@ export function cancellablePromise<T>(promise: Promise<T>): CancellablePromise<T
     };
 }
 
-if (typeof Deno !== "undefined") {
+// Use esbuild option { define: {Deno: "false" } }
+//
+// Esbuild minifier removes this because of "&& Deno" check
+
+if (typeof Deno !== "undefined" && Deno) {
     Deno.test("cancellablePromise", async () => {
         const p = cancellablePromise(
             new Promise((resolve) => {

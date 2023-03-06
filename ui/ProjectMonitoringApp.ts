@@ -1,27 +1,4 @@
-/*
-import { reactionWithOldValue } from "../utils/reactionWithOldValue";
-import * as React from "react";
-import { Api } from "./Api";
-import { action, computed, observable, reaction, runInAction } from "mobx";
-import { observer } from "mobx-react";
-import { asDefaultMap } from "../utils/asDefaultMap";
-import { Timings } from "../components/Timings";
-import { asObservableDefaultMap } from "../utils/asObservableDefaultMap";
-import { IPC_RENDERER, ENV, IS_DEBUG } from "../env";
-import { string } from "prop-types";
-import { ProjectMonitoringDb } from "./ProjectMonitoringDb";
-import { TotalsCache } from "./TotalsCache";
-*/
-import {
-    makeObservable,
-    makeAutoObservable,
-    observable,
-    computed,
-    action,
-    flow,
-    autorun,
-    runInAction,
-} from "https://esm.sh/mobx";
+import { makeObservable, observable, computed, action, reaction } from "https://esm.sh/mobx";
 import { Api } from "./Api.ts";
 import { IPCProtocol, TauriProtocol } from "./IpcProtocol.ts";
 import { ProjectMonitoringDb, Totals } from "./ProjectMonitoringDb.ts";
@@ -65,6 +42,7 @@ export class ProjectMonitoringApp {
     private updateTotalsTimeout = 0;
     private sendDesktopNameBounceTimeout = 0;
     private db = new ProjectMonitoringDb();
+    private lastUpdateFromDb?: CancellablePromise<Totals>;
 
     private cleanReactionClientOrProjectChanges: () => void;
 
@@ -87,17 +65,7 @@ export class ProjectMonitoringApp {
 
         this.listenerInterval = setInterval(this.tick, 1000);
 
-        // this.updateListenerInterval = setInterval(() => {
-        //     if (this.isRunning) {
-        //         this.db.addOrUpdateTiming(this.currentTiming);
-        //     }
-        // }, 30000);
-        this.cleanReactionClientOrProjectChanges = reactionWithOldValue(
-            {
-                client: "",
-                project: "",
-                isRunning: false,
-            },
+        this.cleanReactionClientOrProjectChanges = reaction(
             () => ({
                 client: this.client,
                 project: this.project,
@@ -114,6 +82,9 @@ export class ProjectMonitoringApp {
         clearTimeout(this.sendDesktopNameBounceTimeout);
         clearTimeout(this.updateTotalsTimeout);
         this.cleanReactionClientOrProjectChanges();
+        if (this.lastUpdateFromDb) {
+            this.lastUpdateFromDb.cancel();
+        }
         this.db.destroy();
     }
 
@@ -140,9 +111,9 @@ export class ProjectMonitoringApp {
     private show = () => {
         clearTimeout(this.hideAfterTimeout);
         if (this.ipcRenderer) {
-            setTimeout(() => {
-                this.ipcRenderer.send("projectMonitoringShow");
-            }, 30);
+            // setTimeout(() => {
+            this.ipcRenderer.send("projectMonitoringShow");
+            // }, 30);
         }
         this.hideWait();
     };
@@ -167,8 +138,6 @@ export class ProjectMonitoringApp {
         }
         this.updateTotals();
     };
-
-    private lastUpdateFromDb?: CancellablePromise<Totals>;
 
     @action
     private updateTotals = () => {
@@ -225,7 +194,8 @@ export class ProjectMonitoringApp {
         }
     };
 
-    @computed get isPaused() {
+    @computed
+    private get isPaused() {
         return !!this.pausedProjects.find(
             (f) => f.client === this.client && f.project === this.project
         );
@@ -323,7 +293,7 @@ export class ProjectMonitoringApp {
     };
 
     @action
-    onChangeClient = (v: string) => {
+    private onChangeClient = (v: string) => {
         // this.desktops.setDefault(this.currentDesktop).client = v;
         this.client = v;
         clearTimeout(this.sendDesktopNameBounceTimeout);

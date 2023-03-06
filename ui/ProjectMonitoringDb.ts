@@ -152,7 +152,6 @@ export class ProjectMonitoringDb {
     }
 
     private getTotalsFromApiCache = new Map<ClientAndProjectKey, Totals>();
-    private tempApiCallCache = new Map<ClientAndProjectKey, Promise<Totals>>();
 
     private getTotalsFromApi({
         client,

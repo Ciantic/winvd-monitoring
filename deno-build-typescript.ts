@@ -37,6 +37,16 @@ async function buildTsFile(file: string, outFile: string) {
         bundle: true,
         format: "esm",
         jsx: "automatic",
+        treeShaking: true,
+
+        // Minify is required for dead code elimination, tree shaking doesn't
+        // remove: `if (false) { ... }` statements. 
+        minifySyntax: true,
+        // minifyWhitespace: false,
+        // minify: false,
+        define: {
+            Deno: "false",
+        },
     });
 
     await esbuild.stop();

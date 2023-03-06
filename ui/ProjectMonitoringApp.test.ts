@@ -5,11 +5,24 @@ import { ProjectMonitoringApp } from "./ProjectMonitoringApp.ts";
 Deno.test("Change client", () => {
     const names = [] as string[];
     const app = new ProjectMonitoringApp();
+    const rend = app.render();
     autorun(() => {
-        const values = app.render();
-        names.push(values.clientName);
+        names.push(app.render().clientName);
     });
-    app.onChangeClient("client1");
-    assertEquals(names, ["", "client1"]);
+    rend.onChangeClient("client1");
     app.destroy();
+    assertEquals(names, ["", "client1"]);
+});
+
+Deno.test("Will this start?", () => {
+    const app = new ProjectMonitoringApp();
+    const rend = app.render();
+    rend.onChangeClient("client1");
+    rend.onChangeProject("project1");
+    const rend2 = app.render();
+    const isRunning = rend2.isRunning;
+    app.destroy();
+    if (isRunning === false) {
+        throw new Error("Not running");
+    }
 });

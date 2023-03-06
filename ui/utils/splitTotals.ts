@@ -17,11 +17,11 @@ function sumLength(t: Timing) {
     return (t.end.getTime() - t.start.getTime()) / 3600000;
 }
 
-export function splitTotals(timings: Iterable<Timing>): Totals {
-    const today = startOfDay(new Date());
+export function splitTotals(timings: Iterable<Timing>, now = new Date()): Totals {
+    const today = startOfDay(now);
     const thisWeek = previousMonday(today);
     const lastWeek = previousMonday(thisWeek);
-    const eightWeeksAgo = subDays(new Date(), 7 * 8);
+    const eightWeeksAgo = subDays(now, 7 * 8);
     // TODO: Eight weeks is a bit ambiguous, maybe 60 days instead?
 
     let todayTotal = 0;
