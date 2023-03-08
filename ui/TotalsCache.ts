@@ -72,17 +72,16 @@ export class TotalsCache {
 
     public getTotals(
         clientAndProject: { client: string; project: string },
-        getCurrentTiming: (now?: Date) => PersistedTiming | undefined,
+        currentTiming?: PersistedTiming,
         now = new Date()
     ): {
         totals: Totals;
 
         // `updateFromDb` is returned only if this client and project pair
         // doesn't have database totals in cache
-        updateFromDb?: () => Promise<Totals>;
+        updateFromDb?: () => Promise<void>;
     } {
         // Get current totals, if the timing matches the given project and client
-        const currentTiming = getCurrentTiming(now);
         let currentTotals;
         if (
             currentTiming &&
@@ -98,24 +97,10 @@ export class TotalsCache {
         const dailyTotals = this.dailyTotalsAsProjectAndClient.getDefault(kv);
         const dailyTotalsSum = splitTotalsFrom(dailyTotals, now);
         const totals = sumNTotals(dailyTotalsSum, currentTotals);
-        const getApiTotals = this.updateDailyTotalsFromApi(clientAndProject);
-        if (typeof getApiTotals === "function") {
-            return {
-                totals,
-                updateFromDb: () => {
-                    return getApiTotals()
-                        .catch((error) => {
-                            console.error("API Error", error);
-                        })
-                        .then(() => {
-                            return this.getTotals(clientAndProject, getCurrentTiming, new Date())
-                                .totals;
-                        });
-                },
-            };
-        }
+        const updateFromDb = this.updateDailyTotalsFromApi(clientAndProject);
         return {
             totals,
+            updateFromDb,
         };
     }
 
@@ -125,7 +110,7 @@ export class TotalsCache {
     }: {
         client: string;
         project: string;
-    }): void | (() => Promise<void>) {
+    }): undefined | (() => Promise<void>) {
         const kv = key(client, project);
         if (this.apiLoadedClientsAndProjects.has(kv)) {
             return;

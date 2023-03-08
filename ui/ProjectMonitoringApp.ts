@@ -1,6 +1,6 @@
 import { makeObservable, observable, computed, action, reaction } from "https://esm.sh/mobx";
 import { IPCProtocol, TauriProtocol } from "./IpcProtocol.ts";
-import { ProjectMonitoringDb, Totals } from "./ProjectMonitoringDb.ts";
+import { ProjectMonitoringDb } from "./ProjectMonitoringDb.ts";
 import { emptyTotals, TotalsCache } from "./TotalsCache.ts";
 import { cancellablePromise, CancellablePromise } from "./utils/cancellablePromise.ts";
 
@@ -25,7 +25,7 @@ export class ProjectMonitoringApp {
     private updateTotalsTimeout = 0;
     private sendDesktopNameBounceTimeout = 0;
     private db = new ProjectMonitoringDb();
-    private lastUpdateFromDb?: CancellablePromise<Totals>;
+    private lastUpdateFromDb?: CancellablePromise<void>;
     private totalsCache = new TotalsCache();
 
     private cleanReactionClientOrProjectChanges: () => void;
@@ -133,9 +133,10 @@ export class ProjectMonitoringApp {
             client: this.client,
             project: this.project,
         };
+
         const { totals, updateFromDb } = this.totalsCache.getTotals(
             clientAndProject,
-            this.db.getCurrentTiming.bind(this.db),
+            this.db.getCurrentTiming(),
             new Date()
         );
 
@@ -156,16 +157,16 @@ export class ProjectMonitoringApp {
                 this.lastUpdateFromDb = cancellablePromise(updateFromDb());
                 this.lastUpdateFromDb.promise
                     .then(
-                        action((totals) => {
+                        action(() => {
                             this.isLoadingTotals = false;
 
-                            // Update totals, if client and project is still the same
-                            if (
-                                clientAndProject.client == this.client &&
-                                clientAndProject.project == this.project
-                            ) {
-                                this.totals = totals;
-                            }
+                            // Reupdate the totals, without hitting to db
+                            const { totals } = this.totalsCache.getTotals(
+                                clientAndProject,
+                                this.db.getCurrentTiming()
+                            );
+
+                            this.totals = totals;
                         })
                     )
                     .catch(
