@@ -86,109 +86,24 @@ export class ProjectMonitoringDb {
         }
     }
 
+    public getCurrentTiming(now = new Date()) {
+        if (this.start) {
+            return {
+                client: this.client,
+                project: this.project,
+                start: this.start,
+                end: now,
+            };
+        }
+    }
+
     private insertTiming(timing: PersistedTiming) {
         console.log("Insert timing", timing);
-
-        // Add to daily totals
-        const clientProject = key(timing.client, timing.project);
-        for (const [day, total] of getDailyTotals(timing)) {
-            this.dailyTotalsAsProjectAndClient
-                .getDefault(clientProject)
-                .updateDefault(day, (value) => value + total);
-        }
 
         // Insert timing
         this.timings.push(timing);
 
         // Send event to listeners
         this.onInsertTiming.trigger(timing);
-    }
-
-    public getTotals(
-        { client, project }: { client: string; project: string },
-        now = new Date()
-    ): {
-        totals: Totals;
-
-        // `updateFromDb` is returned only if this client and project pair
-        // doesn't have database totals in cache
-        updateFromDb?: () => Promise<Totals>;
-    } {
-        const kv = key(client, project);
-        const dailyTotals = this.dailyTotalsAsProjectAndClient.getDefault(kv);
-        const dailyTotalsSum = splitTotalsFrom(dailyTotals, now);
-        const currentTotals = this.getRunningTotal({ client, project }, now);
-        const apiTotals = this.updateDailyTotalsFromApi({ client, project });
-        if (typeof apiTotals === "function") {
-            return {
-                totals: sumNTotals(dailyTotalsSum, currentTotals),
-                updateFromDb: () => {
-                    return apiTotals()
-                        .catch((error) => {
-                            console.error("API Error", error);
-                        })
-                        .then(() => {
-                            return this.getTotals({ client, project }, new Date()).totals;
-                        });
-                },
-            };
-        }
-        return {
-            totals: sumNTotals(dailyTotalsSum, currentTotals),
-        };
-    }
-
-    private getRunningTotal(
-        { client, project }: { client: string; project: string },
-        now = new Date()
-    ): Totals {
-        if (this.client === client && this.project === project && this.start) {
-            return splitTotals([{ start: this.start, end: now }]);
-        }
-        return {
-            todayTotal: 0,
-            thisWeekTotal: 0,
-            lastWeekTotal: 0,
-            eightWeekTotal: 0,
-            total: 0,
-        };
-    }
-
-    private updateDailyTotalsFromApi({
-        client,
-        project,
-    }: {
-        client: string;
-        project: string;
-    }): void | (() => Promise<void>) {
-        const kv = key(client, project);
-        if (this.apiLoadedClientsAndProjects.has(kv)) {
-            return;
-        }
-        this.apiLoadedClientsAndProjects.add(kv);
-
-        // Simulate API call
-        return () =>
-            new Promise<void>((resolve) => {
-                console.log("HIT DB", kv);
-                setTimeout(() => {
-                    // Simulate adding 5 hours to yesterday
-                    const yesterday = subDays(startOfDay(new Date()), 1);
-                    this.dailyTotalsAsProjectAndClient
-                        .getDefault(kv)
-                        .updateDefault(yesterday.getTime(), (value) => value + 5);
-
-                    // Simulate adding 3 hours to last week
-                    const lastWeek = subDays(startOfDay(new Date()), 7);
-                    this.dailyTotalsAsProjectAndClient
-                        .getDefault(kv)
-                        .updateDefault(lastWeek.getTime(), (value) => value + 3);
-                    resolve();
-                }, 1000);
-            }).catch((error) => {
-                console.error("API Error", error);
-                // API Call failed, it needs to be retried next time
-                this.apiLoadedClientsAndProjects.delete(kv);
-            });
     }
 }

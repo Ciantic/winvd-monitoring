@@ -2,6 +2,7 @@ import { makeObservable, observable, computed, action, reaction } from "https://
 import { Api } from "./Api.ts";
 import { IPCProtocol, TauriProtocol } from "./IpcProtocol.ts";
 import { ProjectMonitoringDb, Totals } from "./ProjectMonitoringDb.ts";
+import { TotalsCache } from "./TotalsCache.ts";
 import { cancellablePromise, CancellablePromise } from "./utils/cancellablePromise.ts";
 import { reactionWithOldValue } from "./utils/reactionWithOldValue.ts";
 
@@ -43,6 +44,7 @@ export class ProjectMonitoringApp {
     private sendDesktopNameBounceTimeout = 0;
     private db = new ProjectMonitoringDb();
     private lastUpdateFromDb?: CancellablePromise<Totals>;
+    private totalsCache = new TotalsCache(this.db);
 
     private cleanReactionClientOrProjectChanges: () => void;
 
@@ -145,7 +147,7 @@ export class ProjectMonitoringApp {
             client: this.client,
             project: this.project,
         };
-        const { totals, updateFromDb } = this.db.getTotals(clientAndProject);
+        const { totals, updateFromDb } = this.totalsCache.getTotals(clientAndProject, new Date());
 
         this.totals = totals;
 
