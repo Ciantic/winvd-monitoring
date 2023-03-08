@@ -107,6 +107,5 @@ if (typeof Deno !== "undefined" && Deno) {
         if (state.value !== 2) {
             throw new Error("Expected test to be 2");
         }
-        console.log("cbs", event.cbs);
     });
 }

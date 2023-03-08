@@ -62,7 +62,6 @@ export class ProjectMonitoringDb {
     public destroy() {}
 
     public startTiming({ client, project }: { client: string; project: string }, now = new Date()) {
-        console.log("Start timing", client, project);
         if (this.start) {
             throw new Error("Already timing");
         }
@@ -72,7 +71,6 @@ export class ProjectMonitoringDb {
     }
 
     public stopTiming(now = new Date()) {
-        console.log("Stop timing");
         if (this.start) {
             this.insertTiming({
                 client: this.client,
@@ -98,8 +96,6 @@ export class ProjectMonitoringDb {
     }
 
     private insertTiming(timing: PersistedTiming) {
-        console.log("Insert timing", timing);
-
         // Insert timing
         this.timings.push(timing);
 

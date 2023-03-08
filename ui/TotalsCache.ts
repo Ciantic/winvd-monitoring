@@ -66,8 +66,6 @@ export class TotalsCache {
     }
 
     private onDbInsertTiming(timing: PersistedTiming) {
-        console.log("Insert timing TOTALS CACHE", timing);
-
         // Add to daily totals
         const clientProject = key(timing.client, timing.project);
         for (const [day, total] of getDailyTotals(timing)) {

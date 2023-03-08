@@ -61,7 +61,6 @@ export const Timings = (p: TimingsProps) => {
     }, []);
 
     const onClickPlayPause = useCallback(() => {
-        console.log("Click play pause?");
         p.onClickPlayPause?.();
     }, []);
 

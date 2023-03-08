@@ -2,7 +2,6 @@ import { makeObservable, observable, computed, action, reaction } from "https://
 import { IPCProtocol, TauriProtocol } from "./IpcProtocol.ts";
 import { ProjectMonitoringDb, Totals } from "./ProjectMonitoringDb.ts";
 import { emptyTotals, TotalsCache } from "./TotalsCache.ts";
-import { asDefaultMap } from "./utils/asDefaultMap.ts";
 import { cancellablePromise, CancellablePromise } from "./utils/cancellablePromise.ts";
 
 function key(client: string, project: string) {
@@ -150,7 +149,6 @@ export class ProjectMonitoringApp {
                 this.lastUpdateFromDb.promise
                     .then(
                         action((totals) => {
-                            console.log("Updated totals");
                             this.isLoadingTotals = false;
 
                             // Update totals, if client and project is still the same
@@ -237,15 +235,6 @@ export class ProjectMonitoringApp {
         }
 
         this.updateTotals();
-
-        // TODO: Move throttling to inside updateTotals?
-
-        // // Update API totals after a timeout, to avoid throttling
-        // clearTimeout(this.updateTotalsTimeout);
-        // this.updateTotalsTimeout = setTimeout(() => {
-        //     console.log("Update after timeout");
-        //     this.updateTotals();
-        // }, 333);
     };
 
     @action
@@ -268,7 +257,6 @@ export class ProjectMonitoringApp {
 
     @action
     private onChangeClient = (v: string) => {
-        // this.desktops.setDefault(this.currentDesktop).client = v;
         this.client = v;
         clearTimeout(this.sendDesktopNameBounceTimeout);
         this.sendDesktopNameBounceTimeout = setTimeout(this.sendDesktopName, 150);
@@ -276,8 +264,6 @@ export class ProjectMonitoringApp {
 
     @action
     private onChangeProject = (v: string) => {
-        // this.desktops.setDefault(this.currentDesktop).project = v;
-        console.log("Set project name", v);
         this.project = v;
         clearTimeout(this.sendDesktopNameBounceTimeout);
         this.sendDesktopNameBounceTimeout = setTimeout(this.sendDesktopName, 150);
@@ -300,7 +286,6 @@ export class ProjectMonitoringApp {
         personDetectorConnected: boolean;
         personIsVisible: boolean;
     }) => {
-        console.log("main connected", data);
         this.personDetectorConnected = data.personDetectorConnected;
         this.isVisiblePerson = data.personIsVisible;
         // this.updateDesktopsFromLocalDb().then(() => {
@@ -313,7 +298,6 @@ export class ProjectMonitoringApp {
         // TODO: Do I need desktop number? At the moment I don't
 
         const [client, project] = desktop.name.split(/:(.*)/, 2);
-        console.log("Change desktop", desktop, client, project);
         this.client = (client ?? "").trim();
         this.project = (project ?? "").trim();
         this.show();
@@ -339,7 +323,6 @@ export class ProjectMonitoringApp {
     };
 
     private onClickPlayPause = () => {
-        console.log("Click play/pause");
         this.playPause();
     };
 }
