@@ -76,6 +76,10 @@ input {
   text-align: center;
   height: 100%;
   min-height: 11em;
+  -webkit-user-select: none;
+     -moz-user-select: none;
+          user-select: none;
+  cursor: grab;
 }
 
 .timings input {
@@ -145,7 +149,7 @@ input {
   height: 0.75em;
 }
 
-.paused .timings .indicator {
+.timings .indicator.paused {
   background: none;
 }
 
@@ -160,10 +164,10 @@ input {
   opacity: 0;
   z-index: 1;
   transition: opacity 0.25s;
-  background-image: inline-svg('<svg xmlns:svg="http://www.w3.org/2000/svg" xmlns="http://www.w3.org/2000/svg" version="1.1" viewBox="0 0 12 12"><g stroke="red" stroke-width="1"><line x1="1" y1="1" x2="11" y2="11" /><line x1="11" y1="1" x2="1" y2="11" /></g></svg>');
+  background-image: url("data:image/svg+xml,%3Csvg%20xmlns%3Asvg%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20version%3D%221.1%22%20viewBox%3D%220%200%2012%2012%22%3E%3Cg%20stroke%3D%22red%22%20stroke-width%3D%221%22%3E%3Cline%20x1%3D%221%22%20y1%3D%221%22%20x2%3D%2211%22%20y2%3D%2211%22%20%2F%3E%3Cline%20x1%3D%2211%22%20y1%3D%221%22%20x2%3D%221%22%20y2%3D%2211%22%20%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E");
 }
 
-.paused .timings .indicator:after {
+.timings .indicator.paused:after {
   opacity: 1;
 }
 
@@ -171,7 +175,7 @@ input {
   opacity: 1;
 }
 
-.paused .timings .indicator:hover:after {
+.timings .indicator.paused:hover:after {
   opacity: 0.5;
 }
 

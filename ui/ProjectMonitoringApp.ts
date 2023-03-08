@@ -1,21 +1,13 @@
 import { makeObservable, observable, computed, action, reaction } from "https://esm.sh/mobx";
-import { Api } from "./Api.ts";
 import { IPCProtocol, TauriProtocol } from "./IpcProtocol.ts";
 import { ProjectMonitoringDb, Totals } from "./ProjectMonitoringDb.ts";
-import { TotalsCache } from "./TotalsCache.ts";
+import { emptyTotals, TotalsCache } from "./TotalsCache.ts";
+import { asDefaultMap } from "./utils/asDefaultMap.ts";
 import { cancellablePromise, CancellablePromise } from "./utils/cancellablePromise.ts";
-import { reactionWithOldValue } from "./utils/reactionWithOldValue.ts";
 
-interface Timing {
-    client: string;
-    project: string;
-    start: Date;
-    end: Date;
+function key(client: string, project: string) {
+    return `${client}~${project}`;
 }
-
-const ENV = "development" as "development" | "production";
-const IS_DEBUG = true;
-type Timer = number;
 
 export class ProjectMonitoringApp {
     @observable private isVisiblePerson = false;
@@ -24,18 +16,9 @@ export class ProjectMonitoringApp {
     @observable private isSuspended = false;
     @observable private client = "";
     @observable private project = "";
-    @observable private pausedProjects: {
-        client: string;
-        project: string;
-    }[] = [];
+    @observable private pausedProjects = new Map<string, boolean>();
     @observable private isLoadingTotals = false;
-    @observable private totals = {
-        todayTotal: 0,
-        thisWeekTotal: 0,
-        lastWeekTotal: 0,
-        eightWeekTotal: 0,
-        total: 0,
-    };
+    @observable private totals = emptyTotals();
 
     private ipcRenderer: IPCProtocol;
     private hideAfterTimeout = 0;
@@ -97,15 +80,15 @@ export class ProjectMonitoringApp {
             projectName: this.project,
             isRunning: this.isRunning,
             isPaused: this.isPaused,
-            onChangeClient: this.onChangeClient,
-            onChangeProject: this.onChangeProject,
             personDetectorConnected: this.personDetectorConnected,
-            onFocusedInput: this.onFocusedInput,
             isLoadingTotals: this.isLoadingTotals,
             todayTotal: this.totals.todayTotal,
             thisWeekTotal: this.totals.thisWeekTotal,
             lastWeekTotal: this.totals.lastWeekTotal,
             eightWeekTotal: this.totals.eightWeekTotal,
+            onFocusedInput: this.onFocusedInput,
+            onChangeClient: this.onChangeClient,
+            onChangeProject: this.onChangeProject,
             onClickPlayPause: this.onClickPlayPause,
         };
     }
@@ -198,9 +181,7 @@ export class ProjectMonitoringApp {
 
     @computed
     private get isPaused() {
-        return !!this.pausedProjects.find(
-            (f) => f.client === this.client && f.project === this.project
-        );
+        return !!this.pausedProjects.get(key(this.client, this.project));
     }
 
     @computed
@@ -272,17 +253,8 @@ export class ProjectMonitoringApp {
         if (!this.client || !this.project) {
             return;
         }
-        const i = this.pausedProjects.findIndex(
-            (f) => f.client === this.client && f.project === this.project
-        );
-        if (i === -1) {
-            this.pausedProjects.push({
-                client: this.client,
-                project: this.project,
-            });
-        } else {
-            this.pausedProjects.splice(i, 1);
-        }
+        const paused = this.pausedProjects.get(key(this.client, this.project));
+        this.pausedProjects.set(key(this.client, this.project), !paused);
     }
 
     @action
@@ -367,6 +339,7 @@ export class ProjectMonitoringApp {
     };
 
     private onClickPlayPause = () => {
+        console.log("Click play/pause");
         this.playPause();
     };
 }

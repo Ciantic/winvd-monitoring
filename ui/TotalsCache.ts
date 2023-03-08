@@ -31,7 +31,7 @@ function sumNTotals(...totals: Totals[]) {
     return totals.reduce(sumTwoTotals);
 }
 
-function emptyTotals(): Totals {
+export function emptyTotals(): Totals {
     return {
         todayTotal: 0,
         thisWeekTotal: 0,

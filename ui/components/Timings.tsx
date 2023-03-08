@@ -22,52 +22,59 @@ export interface TimingsProps {
     eightWeekTotal: number;
     isLoadingTotals: boolean;
 
+    startDragging: () => void;
     onFocusedInput?: (focused: boolean) => void;
     onChangeClient?: (value: string) => void;
     onChangeProject?: (value: string) => void;
     onClickPlayPause?: () => void;
 }
 
+// Intentionally outside the component
 let focusedTimeout = 0;
 
 export const Timings = (p: TimingsProps) => {
     const onChangeClient = useCallback((e: JSX.TargetedEvent<HTMLInputElement, Event>) => {
-        if (p.onChangeClient) p.onChangeClient(e.currentTarget?.value);
+        p.onChangeClient?.(e.currentTarget?.value);
     }, []);
 
     const onChangeProject = useCallback((e: JSX.TargetedEvent<HTMLInputElement, Event>) => {
-        if (p.onChangeProject) p.onChangeProject(e.currentTarget?.value);
+        p.onChangeProject?.(e.currentTarget?.value);
     }, []);
 
     const onFocus = useCallback((e: JSX.TargetedEvent<HTMLInputElement, Event>) => {
-        // setFocused(true);
         e.currentTarget?.select();
 
         if (focusedTimeout) clearTimeout(focusedTimeout);
         focusedTimeout = setTimeout(() => {
-            if (p.onFocusedInput) p.onFocusedInput(true);
+            p.onFocusedInput?.(true);
         }, 200);
-
-        // setTimeout(() => isFocused && p.onFocusedInput && p.onFocusedInput(true), 30);
     }, []);
 
     const onBlur = useCallback((e: JSX.TargetedEvent<HTMLInputElement, Event>) => {
         // setFocused(false);
-        if (e.currentTarget) {
-            e.currentTarget.setSelectionRange(0, 0, "none");
-        }
+        e.currentTarget?.setSelectionRange(0, 0, "none");
         if (focusedTimeout) clearTimeout(focusedTimeout);
         focusedTimeout = setTimeout(() => {
-            if (p.onFocusedInput) p.onFocusedInput(false);
+            p.onFocusedInput?.(false);
         }, 200);
         // setTimeout(() => !isFocused && p.onFocusedInput && p.onFocusedInput(false), 30);
     }, []);
 
-    // console.log("Render timings", new Date().getTime());
+    const onClickPlayPause = useCallback(() => {
+        console.log("Click play pause?");
+        p.onClickPlayPause?.();
+    }, []);
+
+    const onStartDragging = useCallback((e: JSX.TargetedMouseEvent<HTMLDivElement>) => {
+        if (e.target instanceof HTMLInputElement) return;
+        if (e.target instanceof HTMLDivElement && e.target.matches(".indicator")) return;
+        p.startDragging();
+    }, []);
 
     return (
         <div
-            className={cns("timings", p.isLoadingTotals && "loadingTotals", p.isPaused && "paused")}
+            className={cns("timings", p.isLoadingTotals && "loadingTotals")}
+            onMouseDown={onStartDragging}
         >
             <input
                 type="text"
@@ -87,8 +94,12 @@ export const Timings = (p: TimingsProps) => {
             />
             <div className="todayIndicator">
                 <div
-                    className={["indicator", p.isRunning ? "enabled" : "disabled"].join(" ")}
-                    onClick={p.onClickPlayPause}
+                    className={cns(
+                        "indicator",
+                        p.isRunning ? "enabled" : "disabled",
+                        p.isPaused && "paused"
+                    )}
+                    onClick={onClickPlayPause}
                 >
                     <div
                         className={[
