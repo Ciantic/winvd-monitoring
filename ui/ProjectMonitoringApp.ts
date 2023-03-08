@@ -128,7 +128,7 @@ export class ProjectMonitoringApp {
     };
 
     @action
-    private updateTotals = () => {
+    private updateTotals = (now = new Date()) => {
         const clientAndProject = {
             client: this.client,
             project: this.project,
@@ -136,8 +136,8 @@ export class ProjectMonitoringApp {
 
         const { totals, updateFromDb } = this.totalsCache.getTotals(
             clientAndProject,
-            this.db.getCurrentTiming(),
-            new Date()
+            this.db.getCurrentTiming(now),
+            now
         );
 
         this.totals = totals;
@@ -159,11 +159,13 @@ export class ProjectMonitoringApp {
                     .then(
                         action(() => {
                             this.isLoadingTotals = false;
+                            const now = new Date();
 
                             // Reupdate the totals, without hitting to db
                             const { totals } = this.totalsCache.getTotals(
                                 clientAndProject,
-                                this.db.getCurrentTiming()
+                                this.db.getCurrentTiming(now),
+                                now
                             );
 
                             this.totals = totals;
