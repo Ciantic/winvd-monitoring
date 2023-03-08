@@ -1,5 +1,4 @@
 import { startOfDay, subDays } from "https://cdn.skypack.dev/date-fns";
-import { ProjectMonitoringDb } from "./ProjectMonitoringDb.ts";
 import { asDefaultMap, DefaultMap } from "./utils/asDefaultMap.ts";
 import { getDailyTotals, splitTotals, splitTotalsFrom } from "./utils/splitTotals.ts";
 
@@ -57,15 +56,11 @@ export class TotalsCache {
 
     private apiLoadedClientsAndProjects = new Set<ClientAndProjectKey>();
 
-    constructor(private db: ProjectMonitoringDb) {
-        db.onInsertTiming.addListener(this.onDbInsertTiming, this);
-    }
+    constructor() {}
 
-    public destroy() {
-        this.db.onInsertTiming.removeListener(this.onDbInsertTiming);
-    }
+    public destroy() {}
 
-    private onDbInsertTiming(timing: PersistedTiming) {
+    public insertTiming(timing: PersistedTiming) {
         // Add to daily totals
         const clientProject = key(timing.client, timing.project);
         for (const [day, total] of getDailyTotals(timing)) {
@@ -77,6 +72,7 @@ export class TotalsCache {
 
     public getTotals(
         clientAndProject: { client: string; project: string },
+        getCurrentTiming: (now?: Date) => PersistedTiming | undefined,
         now = new Date()
     ): {
         totals: Totals;
@@ -86,7 +82,7 @@ export class TotalsCache {
         updateFromDb?: () => Promise<Totals>;
     } {
         // Get current totals, if the timing matches the given project and client
-        const currentTiming = this.db.getCurrentTiming(now);
+        const currentTiming = getCurrentTiming(now);
         let currentTotals;
         if (
             currentTiming &&
@@ -112,7 +108,8 @@ export class TotalsCache {
                             console.error("API Error", error);
                         })
                         .then(() => {
-                            return this.getTotals(clientAndProject, new Date()).totals;
+                            return this.getTotals(clientAndProject, getCurrentTiming, new Date())
+                                .totals;
                         });
                 },
             };

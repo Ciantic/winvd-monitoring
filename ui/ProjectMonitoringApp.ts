@@ -26,12 +26,14 @@ export class ProjectMonitoringApp {
     private sendDesktopNameBounceTimeout = 0;
     private db = new ProjectMonitoringDb();
     private lastUpdateFromDb?: CancellablePromise<Totals>;
-    private totalsCache = new TotalsCache(this.db);
+    private totalsCache = new TotalsCache();
 
     private cleanReactionClientOrProjectChanges: () => void;
 
     constructor() {
         makeObservable(this);
+
+        this.db.onInsertTiming.addListener(this.totalsCache.insertTiming, this.totalsCache);
 
         this.ipcRenderer = new TauriProtocol();
         this.ipcRenderer.on("desktopChanged", this.onChangeDesktop);
@@ -61,6 +63,8 @@ export class ProjectMonitoringApp {
 
     destroy() {
         // Call this on componentWillUnmount
+        this.db.onInsertTiming.removeListener(this.totalsCache.insertTiming);
+
         clearInterval(this.listenerInterval);
         clearTimeout(this.hideAfterTimeout);
         clearTimeout(this.sendDesktopNameBounceTimeout);
@@ -129,7 +133,11 @@ export class ProjectMonitoringApp {
             client: this.client,
             project: this.project,
         };
-        const { totals, updateFromDb } = this.totalsCache.getTotals(clientAndProject, new Date());
+        const { totals, updateFromDb } = this.totalsCache.getTotals(
+            clientAndProject,
+            this.db.getCurrentTiming.bind(this.db),
+            new Date()
+        );
 
         this.totals = totals;
 
