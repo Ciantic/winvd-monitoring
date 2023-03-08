@@ -53,11 +53,11 @@ export const Timings = (p: TimingsProps) => {
     const onBlur = useCallback((e: JSX.TargetedEvent<HTMLInputElement, Event>) => {
         // setFocused(false);
         e.currentTarget?.setSelectionRange(0, 0, "none");
+
         if (focusedTimeout) clearTimeout(focusedTimeout);
         focusedTimeout = setTimeout(() => {
             p.onFocusedInput?.(false);
         }, 200);
-        // setTimeout(() => !isFocused && p.onFocusedInput && p.onFocusedInput(false), 30);
     }, []);
 
     const onClickPlayPause = useCallback(() => {
@@ -82,6 +82,7 @@ export const Timings = (p: TimingsProps) => {
                 onInput={onChangeClient}
                 className={"clientName"}
                 value={p.clientName}
+                spellcheck={false}
             />
             <input
                 type="text"
@@ -90,6 +91,7 @@ export const Timings = (p: TimingsProps) => {
                 onInput={onChangeProject}
                 className={"projectName"}
                 value={p.projectName}
+                spellcheck={false}
             />
             <div className="todayIndicator">
                 <div

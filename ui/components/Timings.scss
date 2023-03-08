@@ -67,6 +67,8 @@ $anim-speed: 0.25s;
         "eightWeek lastWeek thisWeek";
     text-align: center;
     height: 100%;
+    box-sizing: border-box;
+    border: 1px solid #ccc;
     min-height: 11em;
     user-select: none;
     cursor: grab;

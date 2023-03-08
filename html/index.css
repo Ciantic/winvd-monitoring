@@ -75,6 +75,8 @@ input {
   grid-template-areas: "client client client" "project project project" "todayIndicator todayIndicator todayIndicator" "eightWeek lastWeek thisWeek";
   text-align: center;
   height: 100%;
+  box-sizing: border-box;
+  border: 1px solid #ccc;
   min-height: 11em;
   -webkit-user-select: none;
      -moz-user-select: none;

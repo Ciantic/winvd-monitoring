@@ -16,6 +16,14 @@ export class TauriProtocol implements IPCProtocol {
     }
 
     send(event: string, payload: any): void {
+        if (event == "projectMonitoringHide") {
+            __TAURI__.window.getCurrent().hide();
+            return;
+        }
+        if (event == "projectMonitoringShow") {
+            __TAURI__.window.getCurrent().show();
+            return;
+        }
         if (typeof __TAURI__ != "undefined") {
             __TAURI__.event.emit(event, payload);
         } else console.log("send", event, payload);
