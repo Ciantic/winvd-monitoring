@@ -1,4 +1,12 @@
-import { previousMonday, startOfDay, subDays } from "https://cdn.skypack.dev/date-fns";
+import {
+    previousMonday,
+    startOfDay,
+    subDays,
+    addDays,
+    eachDayOfInterval,
+    eachWeekOfInterval,
+    startOfWeek,
+} from "https://cdn.skypack.dev/date-fns";
 
 interface Totals {
     todayTotal: number;
@@ -14,6 +22,10 @@ interface Timing {
 }
 
 function sumLength(t: Timing) {
+    if (t.end < t.start) {
+        console.warn("Timing end is before start", t);
+        return 0;
+    }
     return (t.end.getTime() - t.start.getTime()) / 3600000;
 }
 
@@ -54,4 +66,116 @@ export function splitTotals(timings: Iterable<Timing>, now = new Date()): Totals
         eightWeekTotal,
         total,
     };
+}
+
+export function splitTotalsFrom(
+    dailyTotals: Map<DayTimestamp, TotalHours>,
+    now = new Date()
+): Totals {
+    const today = startOfDay(now);
+    const thisWeek = previousMonday(today);
+    const lastWeek = previousMonday(thisWeek);
+    const eightWeeksAgo = subDays(now, 7 * 8);
+
+    let todayTotal = 0;
+    let thisWeekTotal = 0;
+    let lastWeekTotal = 0;
+    let eightWeekTotal = 0;
+    let total = 0;
+
+    for (const [day, length] of dailyTotals) {
+        if (day >= today.getTime()) {
+            todayTotal += length;
+        }
+        if (day >= thisWeek.getTime()) {
+            thisWeekTotal += length;
+        }
+        if (day >= lastWeek.getTime() && day < thisWeek.getTime()) {
+            lastWeekTotal += length;
+        }
+        if (day >= eightWeeksAgo.getTime()) {
+            eightWeekTotal += length;
+        }
+        total += length;
+    }
+
+    return {
+        todayTotal,
+        thisWeekTotal,
+        lastWeekTotal,
+        eightWeekTotal,
+        total,
+    };
+}
+
+type DayTimestamp = number;
+type TotalHours = number;
+
+export function getWeeklyTotals(timing: Timing): Map<DayTimestamp, TotalHours> {
+    const result = new Map<DayTimestamp, TotalHours>();
+    let current = timing.start;
+
+    for (const day of eachWeekOfInterval(timing)) {
+        const ending = startOfDay(addDays(current, 7));
+        const length = sumLength({
+            start: current,
+            end: ending > timing.end ? timing.end : ending,
+        });
+        result.set(day.getTime(), length);
+        current = ending;
+    }
+
+    return result;
+}
+
+export function getDailyTotals(timing: Timing): Map<DayTimestamp, TotalHours> {
+    const result = new Map<DayTimestamp, TotalHours>();
+    let current = timing.start;
+
+    for (const day of eachDayOfInterval(timing)) {
+        const ending = startOfDay(addDays(current, 1));
+        const length = sumLength({
+            start: current,
+            end: ending > timing.end ? timing.end : ending,
+        });
+        result.set(day.getTime(), length);
+        current = ending;
+    }
+
+    return result;
+}
+
+import { assertEquals } from "https://deno.land/std/testing/asserts.ts";
+if (typeof Deno !== "undefined" && Deno) {
+    Deno.test("getDailyTotals", () => {
+        const timing = {
+            start: new Date(2021, 0, 1, 12),
+            end: new Date(2021, 0, 2, 12),
+        };
+        const result = getDailyTotals(timing);
+        assertEquals(result.size, 2);
+        assertEquals(result.get(new Date(2021, 0, 1).getTime()), 12);
+        assertEquals(result.get(new Date(2021, 0, 2).getTime()), 12);
+    });
+    Deno.test("getDailyTotals 2", () => {
+        const timing = {
+            start: new Date(2021, 0, 1, 12),
+            end: new Date(2021, 0, 1, 14),
+        };
+        const result = getDailyTotals(timing);
+        assertEquals(result.size, 1);
+        assertEquals(result.get(new Date(2021, 0, 1).getTime()), 2);
+    });
+    Deno.test("getWeeklyTotals", () => {
+        const timing = {
+            start: new Date(2023, 2, 7, 12), // Tuesday
+            end: new Date(2023, 2, 7 + 10, 12),
+        };
+        const result = getWeeklyTotals(timing);
+        assertEquals(result.size, 2);
+        assertEquals(result.get(startOfWeek(new Date(2023, 2, 7, 12)).getTime()), 156);
+        assertEquals(result.get(addDays(startOfWeek(new Date(2023, 2, 7, 12)), 7).getTime()), 84);
+
+        startOfDay;
+    });
 }

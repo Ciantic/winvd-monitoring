@@ -12,6 +12,15 @@ export class DefaultMap<K, V> extends Map<K, V> {
         return v;
     }
 
+    updateDefault(key: K, updater: (old: V) => V): void {
+        const v = this.get(key);
+        if (typeof v === "undefined") {
+            this.set(key, updater(this.makeDefault()));
+            return;
+        }
+        this.set(key, updater(v));
+    }
+
     // setWithOldValue(key: K, value: (old: V) => V): V {}
 
     // // It's not feasible to modify the value of getDefault

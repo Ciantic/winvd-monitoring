@@ -1,7 +1,3 @@
-import m from "https://esm.sh/moment";
-m.locale("en-GB");
-export const moment = m;
-
 export const Lang = {
     total: "Total",
     lastWeek: "Last Week",

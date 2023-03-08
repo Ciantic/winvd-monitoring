@@ -3,3 +3,4 @@
 /target/
 /html/*.js
 icons/
+deno.lock

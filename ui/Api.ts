@@ -45,6 +45,8 @@ export const Api = {
             });
         },
         dailyTotals: (opts: { client?: string; project?: string; from: Date; to: Date }) => {
+            // TODO: Get SQL from OLD app, it's great
+
             return apiRequest<{ day: string; hours: number; client: string; project: string }[]>(
                 "post",
                 "/timings/dailyTotals",
