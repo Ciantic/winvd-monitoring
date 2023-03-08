@@ -44,49 +44,16 @@ export class ProjectMonitoringDb {
     private project = "";
     private start?: Date;
 
-    // private totalsAsProjectAndClient = asDefaultMap<
-    //     ClientAndProjectKey,
-    //     DefaultMap<DayTimestamp, Totals>
-    // >(() =>
-    //     asDefaultMap(() => ({
-    //         todayTotal: 0,
-    //         thisWeekTotal: 0,
-    //         lastWeekTotal: 0,
-    //         eightWeekTotal: 0,
-    //         total: 0,
-    //     }))
-    // );
-
-    // private timingsByProjectAndClient = asDefaultMap<ClientAndProjectKey, PersistedTiming[]>(
-    //     () => []
-    // );
     private timings: PersistedTiming[] = [];
-
     private dailyTotalsAsProjectAndClient = asDefaultMap<
         ClientAndProjectKey,
         DefaultMap<DayTimestamp, TotalHours>
     >(() => asDefaultMap<DayTimestamp, TotalHours>(() => 0));
-
     private apiLoadedClientsAndProjects = new Set<ClientAndProjectKey>();
 
-    // private timingsAsProjectAndClient = asDefaultMap<
-    //     ClientAndProjectKey,
-    //     {
-    //         totals: Totals;
-    //         timings: Map<StartTimestamp, PersistedTiming>;
-    //     }
-    // >(() => ({
-    //     totals: {
-    //         todayTotal: 0,
-    //         thisWeekTotal: 0,
-    //         lastWeekTotal: 0,
-    //         eightWeekTotal: 0,
-    //         total: 0,
-    //     },
-    //     timings: new Map(),
-    // }));
-
-    constructor() {}
+    constructor() {
+        // TODO: Periodically save timings to database
+    }
 
     public destroy() {}
 
@@ -154,7 +121,7 @@ export class ProjectMonitoringDb {
                             console.error("API Error", error);
                         })
                         .then(() => {
-                            return this.getTotals({ client, project }, now).totals;
+                            return this.getTotals({ client, project }, new Date()).totals;
                         });
                 },
             };
