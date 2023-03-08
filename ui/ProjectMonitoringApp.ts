@@ -158,7 +158,6 @@ export class ProjectMonitoringApp {
                 this.lastUpdateFromDb.promise
                     .then(
                         action(() => {
-                            this.isLoadingTotals = false;
                             const now = new Date();
 
                             // Reupdate the totals, without hitting to db
@@ -169,6 +168,7 @@ export class ProjectMonitoringApp {
                             );
 
                             this.totals = totals;
+                            this.isLoadingTotals = false;
                         })
                     )
                     .catch(
