@@ -129,16 +129,7 @@ export class ProjectMonitoringApp {
 
     @action
     private updateTotals = (now = new Date()) => {
-        const clientAndProject = {
-            client: this.client,
-            project: this.project,
-        };
-
-        const { totals, updateFromDb } = this.totalsCache.getTotals(
-            clientAndProject,
-            this.db.getCurrentTiming(now),
-            now
-        );
+        const { totals, updateFromDb } = this.totalsCache.getTotals(this.currentTiming, now);
 
         this.totals = totals;
 
@@ -161,11 +152,7 @@ export class ProjectMonitoringApp {
                             const now = new Date();
 
                             // Reupdate the totals, without hitting to db
-                            const { totals } = this.totalsCache.getTotals(
-                                clientAndProject,
-                                this.db.getCurrentTiming(now),
-                                now
-                            );
+                            const { totals } = this.totalsCache.getTotals(this.currentTiming, now);
 
                             this.totals = totals;
                             this.isLoadingTotals = false;
@@ -187,6 +174,15 @@ export class ProjectMonitoringApp {
             }, 300);
         }
     };
+
+    private get currentTiming() {
+        return (
+            this.db.getCurrentTiming() ?? {
+                client: this.client,
+                project: this.project,
+            }
+        );
+    }
 
     @computed
     private get isPaused() {

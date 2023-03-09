@@ -2,12 +2,20 @@ import { startOfDay, subDays } from "https://cdn.skypack.dev/date-fns";
 import { asDefaultMap, DefaultMap } from "./utils/asDefaultMap.ts";
 import { getDailyTotals, splitTotals, splitTotalsFrom } from "./utils/splitTotals.ts";
 
-interface PersistedTiming {
+interface Timing {
     client: string;
     project: string;
     start: Date;
     end: Date;
 }
+
+interface ClientAndProject {
+    client: string;
+    project: string;
+}
+
+type TimingOptional = ClientAndProject | Timing;
+
 export interface Totals {
     todayTotal: number;
     thisWeekTotal: number;
@@ -40,11 +48,10 @@ export function emptyTotals(): Totals {
     };
 }
 
-type StartTimestamp = number;
 type ClientAndProjectKey = string;
 type DayTimestamp = number;
 type TotalHours = number;
-function key(client: string, project: string): ClientAndProjectKey {
+function key({ client, project }: ClientAndProject): ClientAndProjectKey {
     return `${client}~${project}`;
 }
 
@@ -56,13 +63,9 @@ export class TotalsCache {
 
     private apiLoadedClientsAndProjects = new Set<ClientAndProjectKey>();
 
-    constructor() {}
-
-    public destroy() {}
-
-    public insertTiming(timing: PersistedTiming) {
+    public insertTiming(timing: Timing) {
         // Add to daily totals
-        const clientProject = key(timing.client, timing.project);
+        const clientProject = key(timing);
         for (const [day, total] of getDailyTotals(timing)) {
             this.dailyTotalsAsProjectAndClient
                 .getDefault(clientProject)
@@ -71,8 +74,7 @@ export class TotalsCache {
     }
 
     public getTotals(
-        clientAndProject: { client: string; project: string },
-        currentTiming?: PersistedTiming,
+        currentTiming: TimingOptional,
         now = new Date()
     ): {
         totals: Totals;
@@ -81,37 +83,28 @@ export class TotalsCache {
         // doesn't have database totals in cache
         updateFromDb?: () => Promise<void>;
     } {
-        // Get current totals, if the timing matches the given project and client
         let currentTotals;
-        if (
-            currentTiming &&
-            currentTiming.client === clientAndProject.client &&
-            currentTiming.project === clientAndProject.project
-        ) {
+        if ("start" in currentTiming) {
             currentTotals = splitTotals([currentTiming], now);
         } else {
             currentTotals = emptyTotals();
         }
 
-        const kv = key(clientAndProject.client, clientAndProject.project);
+        const kv = key(currentTiming);
         const dailyTotals = this.dailyTotalsAsProjectAndClient.getDefault(kv);
         const dailyTotalsSum = splitTotalsFrom(dailyTotals, now);
         const totals = sumNTotals(dailyTotalsSum, currentTotals);
-        const updateFromDb = this.updateDailyTotalsFromApi(clientAndProject);
+        const updateFromDb = this.updateDailyTotalsFromApi(currentTiming);
         return {
             totals,
             updateFromDb,
         };
     }
 
-    private updateDailyTotalsFromApi({
-        client,
-        project,
-    }: {
-        client: string;
-        project: string;
-    }): undefined | (() => Promise<void>) {
-        const kv = key(client, project);
+    private updateDailyTotalsFromApi(
+        clientAndProject: ClientAndProject
+    ): undefined | (() => Promise<void>) {
+        const kv = key(clientAndProject);
         if (this.apiLoadedClientsAndProjects.has(kv)) {
             return;
         }

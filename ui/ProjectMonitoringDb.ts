@@ -1,56 +1,24 @@
-import { asDefaultMap, DefaultMap } from "./utils/asDefaultMap.ts";
 import { simpleMapEvent } from "./utils/simpleMapEvent.ts";
 
-interface PersistedTiming {
+interface ClientAndProject {
+    client: string;
+    project: string;
+}
+export interface Timing {
     client: string;
     project: string;
     start: Date;
     end: Date;
-}
-export interface Totals {
-    todayTotal: number;
-    thisWeekTotal: number;
-    lastWeekTotal: number;
-    eightWeekTotal: number;
-    total: number;
-}
-
-function sumTwoTotals(a: Totals, b: Totals) {
-    return {
-        todayTotal: a.todayTotal + b.todayTotal,
-        thisWeekTotal: a.thisWeekTotal + b.thisWeekTotal,
-        lastWeekTotal: a.lastWeekTotal + b.lastWeekTotal,
-        eightWeekTotal: a.eightWeekTotal + b.eightWeekTotal,
-        total: a.total + b.total,
-    };
-}
-
-function sumNTotals(...totals: Totals[]) {
-    return totals.reduce(sumTwoTotals);
-}
-
-type StartTimestamp = number;
-type ClientAndProjectKey = string;
-type DayTimestamp = number;
-type TotalHours = number;
-function key(client: string, project: string): ClientAndProjectKey {
-    return `${client}~${project}`;
 }
 
 export class ProjectMonitoringDb {
     private client = "";
     private project = "";
     private start?: Date;
-
-    private timings: PersistedTiming[] = [];
-    private dailyTotalsAsProjectAndClient = asDefaultMap<
-        ClientAndProjectKey,
-        DefaultMap<DayTimestamp, TotalHours>
-    >(() => asDefaultMap<DayTimestamp, TotalHours>(() => 0));
-    private apiLoadedClientsAndProjects = new Set<ClientAndProjectKey>();
+    private timings: Timing[] = [];
 
     // Event listener hookup
-    public onInsertTiming = simpleMapEvent<PersistedTiming, void>(this);
+    public onInsertTiming = simpleMapEvent<Timing, void>(this);
 
     constructor() {
         // TODO: Periodically save timings to database
@@ -58,7 +26,7 @@ export class ProjectMonitoringDb {
 
     public destroy() {}
 
-    public startTiming({ client, project }: { client: string; project: string }, now = new Date()) {
+    public startTiming({ client, project }: ClientAndProject, now = new Date()) {
         if (this.start) {
             throw new Error("Already timing");
         }
@@ -92,7 +60,7 @@ export class ProjectMonitoringDb {
         }
     }
 
-    private insertTiming(timing: PersistedTiming) {
+    private insertTiming(timing: Timing) {
         // Insert timing
         this.timings.push(timing);
 
