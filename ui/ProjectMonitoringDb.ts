@@ -1,8 +1,5 @@
-import { startOfDay, subDays } from "https://cdn.skypack.dev/date-fns";
-import { C } from "../../../../Users/jarip/AppData/Local/deno/npm/registry.npmjs.org/@tauri-apps/api/1.2.0/event-2a9960e7.d.ts";
 import { asDefaultMap, DefaultMap } from "./utils/asDefaultMap.ts";
 import { simpleMapEvent } from "./utils/simpleMapEvent.ts";
-import { getDailyTotals, splitTotals, splitTotalsFrom } from "./utils/splitTotals.ts";
 
 interface PersistedTiming {
     client: string;
