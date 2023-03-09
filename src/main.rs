@@ -83,6 +83,16 @@ fn pin_to_all_desktops(window: &Window) {
     }
 }
 
+#[tauri::command]
+fn show_window(window: Window) {
+    window.show().unwrap();
+}
+
+#[tauri::command]
+fn hide_window(window: Window) {
+    window.hide().unwrap();
+}
+
 fn main() {
     let tray_menu = SystemTrayMenu::new().add_item(CustomMenuItem::new("quit", "Quit"));
 
@@ -156,6 +166,7 @@ fn main() {
         })
         // .manage(Mutex::new(event_thread))
         // .invoke_handler(tauri::generate_handler![desktop_event_process])
+        .invoke_handler(tauri::generate_handler![show_window, hide_window])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
     println!("Exit?");

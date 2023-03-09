@@ -1,9 +1,9 @@
 declare const __TAURI__: typeof import("npm:@tauri-apps/api");
 
 export interface IPCProtocol {
-    on(event: string, listener: (...args: any[]) => void): void;
+    // on(event: string, listener: (...args: any[]) => void): void;
     // send(event: string, ...args: any[]): void;
-    send(event: "projectMonitoringConnected", ...args: never[]): void;
+    send(event: "projectMonitoringConnected"): void;
     send(event: "projectMonitoringHide"): void;
     send(event: "projectMonitoringShow"): void;
     send(event: "projectMonitoringIsRunningChanged", isRunning: boolean): void;
@@ -28,11 +28,13 @@ export class TauriProtocol implements IPCProtocol {
     send(event: string, payload?: any): void {
         if (typeof __TAURI__ != "undefined") {
             if (event == "projectMonitoringHide") {
-                __TAURI__.window.getCurrent().hide();
+                __TAURI__.invoke("hide_window");
+                // __TAURI__.window.getCurrent().hide();
                 return;
             }
             if (event == "projectMonitoringShow") {
-                __TAURI__.window.getCurrent().show();
+                __TAURI__.invoke("show_window");
+                // __TAURI__.window.getCurrent().show();
                 return;
             }
             __TAURI__.event.emit(event, payload);
