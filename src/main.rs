@@ -169,6 +169,17 @@ fn main() {
             //         }
             //     }
             // });
+            let win2 = window.clone();
+            window.on_window_event(move |f| match f {
+                WindowEvent::Focused(true) => {
+                    let _ = win2.emit("focus", ());
+                }
+                WindowEvent::Focused(false) => {
+                    let _ = win2.emit("blur", ());
+                }
+                _ => (),
+            });
+
             window.listen("desktopNameChanged", |ev| {
                 if let Some(str) = ev.payload() {
                     if let Ok(desktop) = serde_json::from_str::<DesktopNameChanged>(str) {

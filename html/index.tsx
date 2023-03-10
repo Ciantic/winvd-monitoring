@@ -35,6 +35,7 @@ const App = () => {
                 projectName={state.projectName}
                 eightWeekTotal={state.eightWeekTotal}
                 isLoadingTotals={state.isLoadingTotals}
+                isFocused={state.isFocused}
                 isPaused={state.isPaused}
                 isRunning={state.isRunning}
                 lastWeekTotal={state.lastWeekTotal}

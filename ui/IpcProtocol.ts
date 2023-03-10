@@ -1,7 +1,7 @@
 declare const __TAURI__: typeof import("npm:@tauri-apps/api");
 
 export interface IPCProtocol {
-    // on(event: string, listener: (...args: any[]) => void): void;
+    on(event: string, listener: (...args: any[]) => void): void;
     // send(event: string, ...args: any[]): void;
     send(event: "projectMonitoringConnected"): void;
     send(event: "projectMonitoringHide"): void;

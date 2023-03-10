@@ -13,6 +13,7 @@ export interface TimingsProps {
     // currentDesktop: string;
     clientName: string;
     projectName: string;
+    isFocused: boolean;
     isRunning: boolean;
     isPaused: boolean;
     personDetectorConnected: boolean;
@@ -72,7 +73,11 @@ export const Timings = (p: TimingsProps) => {
 
     return (
         <div
-            className={cns("timings", p.isLoadingTotals && "loadingTotals")}
+            className={cns(
+                "timings",
+                p.isFocused && "isFocused",
+                p.isLoadingTotals && "loadingTotals"
+            )}
             onMouseDown={onStartDragging}
         >
             <input

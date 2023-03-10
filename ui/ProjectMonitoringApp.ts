@@ -11,6 +11,7 @@ function key(client: string, project: string) {
 export class ProjectMonitoringApp {
     @observable private isVisiblePerson = false;
     @observable private personDetectorConnected = false;
+    @observable private isFocusedApp = false;
     @observable private isFocusedInput = false;
     @observable private isSuspended = false;
     @observable private client = "";
@@ -83,6 +84,7 @@ export class ProjectMonitoringApp {
             projectName: this.project,
             isRunning: this.isRunning,
             isPaused: this.isPaused,
+            isFocused: this.isFocusedApp,
             personDetectorConnected: this.personDetectorConnected,
             isLoadingTotals: this.isLoadingTotals,
             todayTotal: this.totals.todayTotal,
@@ -109,7 +111,7 @@ export class ProjectMonitoringApp {
     private hideWait = () => {
         clearTimeout(this.hideAfterTimeout);
         this.hideAfterTimeout = setTimeout(() => {
-            if (this.isFocusedInput) {
+            if (this.isFocusedInput || this.isFocusedApp) {
                 return;
             }
 
@@ -256,10 +258,12 @@ export class ProjectMonitoringApp {
     @action
     private onBlurApp = () => {
         this.isFocusedInput = false;
+        this.isFocusedApp = false;
+        this.hideWait();
     };
 
     private onFocusApp = () => {
-        // Nothing at the moment
+        this.isFocusedApp = true;
     };
 
     @action

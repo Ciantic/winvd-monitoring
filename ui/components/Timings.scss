@@ -50,6 +50,10 @@ $anim-speed: 0.25s;
     @function inline-svg($string) {
         @return url("data:image/svg+xml,#{url-encode($string)}");
     }
+    --bg: #fff;
+    --fg: #000;
+
+    background: var(--bg);
 
     font-family: "Segoe UI", sans-serif;
     font-size: 5vw;
@@ -70,6 +74,11 @@ $anim-speed: 0.25s;
     box-sizing: border-box;
     min-height: 11em;
     user-select: none;
+    border-radius: 9px;
+    // transition: box-shadow $anim-speed;
+    &.isFocused {
+        box-shadow: inset 0 0 0 2px rgb(80, 217, 255);
+    }
     cursor: grab;
     input {
         appearance: none;
@@ -77,12 +86,13 @@ $anim-speed: 0.25s;
         font-family: inherit;
         font-size: inherit;
         text-align: center;
+        background: none;
         &:focus {
             outline: 0;
         }
     }
 
-    &.loadingTotals {
+    &.loadingTotals > * {
         opacity: 0.5;
     }
 
