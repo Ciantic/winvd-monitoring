@@ -68,7 +68,6 @@ $anim-speed: 0.25s;
     text-align: center;
     height: 100%;
     box-sizing: border-box;
-    border: 1px solid #ccc;
     min-height: 11em;
     user-select: none;
     cursor: grab;
@@ -173,7 +172,7 @@ $anim-speed: 0.25s;
         height: 0.5em;
         border-radius: 50%;
         &.disabled {
-            background: #fff;
+            background: var(--bg);
         }
     }
     .today {

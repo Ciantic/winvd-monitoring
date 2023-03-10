@@ -3,10 +3,14 @@
     windows_subsystem = "windows"
 )]
 
+use raw_window_handle::HasRawWindowHandle;
 use std::sync::Mutex;
-use tauri::{CustomMenuItem, Manager, Size, SystemTray, SystemTrayMenu, Window, WindowEvent};
-use windows::Win32::Foundation::HWND;
-use winvd::{get_current_desktop, get_desktop, Desktop};
+use tauri::{CustomMenuItem, Manager, SystemTray, SystemTrayMenu, Window, WindowEvent};
+use windows::Win32::{
+    Foundation::HWND,
+    UI::WindowsAndMessaging::{AnimateWindow, AW_BLEND, AW_HIDE},
+};
+use winvd::get_current_desktop;
 
 #[derive(Clone, serde::Serialize)]
 struct Payload {
@@ -46,7 +50,7 @@ struct DesktopNameChanged {
 // }
 
 fn start_desktop_event_thread(window: &Window) {
-    use winvd::{listen_desktop_events, Desktop, DesktopEvent};
+    use winvd::{listen_desktop_events, DesktopEvent};
 
     let window = window.clone();
     std::thread::spawn(move || {
@@ -83,14 +87,65 @@ fn pin_to_all_desktops(window: &Window) {
     }
 }
 
+fn setup_native_shadows(window: &impl raw_window_handle::HasRawWindowHandle) {
+    use windows::Win32::{Graphics::Dwm::DwmExtendFrameIntoClientArea, UI::Controls::MARGINS};
+
+    match window.raw_window_handle() {
+        #[cfg(target_os = "windows")]
+        raw_window_handle::RawWindowHandle::Win32(handle) => {
+            // Enable shadows
+            let m = 1;
+            let margins = MARGINS {
+                cxLeftWidth: m,
+                cxRightWidth: m,
+                cyTopHeight: m,
+                cyBottomHeight: m,
+            };
+            unsafe {
+                let _ = DwmExtendFrameIntoClientArea(HWND(handle.hwnd as _), &margins);
+            };
+        }
+        _ => (),
+    }
+}
+
 #[tauri::command]
 fn show_window(window: Window) {
-    window.show().unwrap();
+    match window.raw_window_handle() {
+        #[cfg(target_os = "windows")]
+        raw_window_handle::RawWindowHandle::Win32(handle) => {
+            // Show window, but don't activate it
+            // println!("SHOW WINDOW");
+            // let _ = ShowWindow(HWND(handle.hwnd as _), SW_SHOWNOACTIVATE);
+
+            // Hide window with fade out
+            unsafe {
+                let _ = AnimateWindow(HWND(handle.hwnd as _), 200, AW_BLEND);
+            }
+        }
+        _ => {
+            window.show().unwrap();
+        }
+    }
 }
 
 #[tauri::command]
 fn hide_window(window: Window) {
-    window.hide().unwrap();
+    match window.raw_window_handle() {
+        #[cfg(target_os = "windows")]
+        raw_window_handle::RawWindowHandle::Win32(handle) => {
+            // Hide window normal way
+            // let _ = ShowWindow(HWND(handle.hwnd as _), SW_HIDE);
+
+            // Hide window with fade out
+            unsafe {
+                let _ = AnimateWindow(HWND(handle.hwnd as _), 200, AW_BLEND | AW_HIDE);
+            }
+        }
+        _ => {
+            window.show().unwrap();
+        }
+    }
 }
 
 fn main() {
@@ -103,6 +158,7 @@ fn main() {
             window.open_devtools();
             pin_to_all_desktops(&window);
             start_desktop_event_thread(&window);
+            setup_native_shadows(&window);
 
             // On desktop change notify the window
             // window.listen("desktopChanged", |ev| {

@@ -22,6 +22,12 @@ winvd = "*"
 raw-window-handle = "0.5"
 windows = { version = "0.44", features = [
     # Find WinApi features with searching here https://microsoft.github.io/windows-docs-rs/
+
+    # https://microsoft.github.io/windows-docs-rs/doc/windows/Win32/Graphics/Dwm/fn.DwmExtendFrameIntoClientArea.html
+    "Win32_Graphics_Dwm",
+    "Win32_Foundation",
+    "Win32_UI_Controls",
+
     # "Win32_UI_WindowsAndMessaging", # for TranslateMessage etc.
 ] }
 
