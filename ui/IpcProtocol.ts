@@ -37,6 +37,11 @@ export class TauriProtocol implements IPCProtocol {
                 // __TAURI__.window.getCurrent().show();
                 return;
             }
+            if (event == "projectMonitoringIsRunningChanged") {
+                __TAURI__.invoke("running_changed", { running: payload });
+                // __TAURI__.window.getCurrent().show();
+                return;
+            }
             __TAURI__.event.emit(event, payload);
         } else console.log("send", event, payload);
     }

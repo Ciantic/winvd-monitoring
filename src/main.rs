@@ -5,7 +5,7 @@
 
 use raw_window_handle::HasRawWindowHandle;
 use std::sync::Mutex;
-use tauri::{CustomMenuItem, Manager, SystemTray, SystemTrayMenu, Window, WindowEvent};
+use tauri::{CustomMenuItem, Icon, Manager, SystemTray, SystemTrayMenu, Window, WindowEvent};
 use windows::Win32::{
     Foundation::HWND,
     UI::WindowsAndMessaging::{AnimateWindow, AW_BLEND, AW_HIDE},
@@ -148,6 +148,21 @@ fn hide_window(window: Window) {
     }
 }
 
+#[tauri::command]
+fn running_changed(app: tauri::AppHandle, running: bool) {
+    let icon = if running {
+        ICON_RUNNING.with(|i| i.clone())
+    } else {
+        ICON_STOPPED.with(|i| i.clone())
+    };
+    app.tray_handle().set_icon(icon).unwrap();
+}
+
+thread_local! {
+    static ICON_RUNNING: Icon = Icon::Raw(include_bytes!("../icons/icon-running.ico").to_vec());
+    static ICON_STOPPED: Icon = Icon::Raw(include_bytes!("../icons/icon-stopped.ico").to_vec());
+}
+
 fn main() {
     let tray_menu = SystemTrayMenu::new().add_item(CustomMenuItem::new("quit", "Quit"));
 
@@ -188,6 +203,16 @@ fn main() {
                     }
                 }
             });
+            // let tray_handle = app.tray_handle();
+            // window.listen("projectMonitoringIsRunningChanged", |ev| {
+            //     if let Some(str) = ev.payload() {
+            //         if let Ok(desktop) = serde_json::from_str::<bool>(str) {
+            //             ICON_STOPPED.with(|v| {
+            //                 app.tray_handle().set_icon(v.clone()).unwrap();
+            //             });
+            //         }
+            //     }
+            // });
 
             // Wait until the project monitoring window is connected
             let win2 = window.clone();
@@ -233,7 +258,11 @@ fn main() {
         })
         // .manage(Mutex::new(event_thread))
         // .invoke_handler(tauri::generate_handler![desktop_event_process])
-        .invoke_handler(tauri::generate_handler![show_window, hide_window])
+        .invoke_handler(tauri::generate_handler![
+            show_window,
+            hide_window,
+            running_changed
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
     println!("Exit?");
