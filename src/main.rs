@@ -49,7 +49,7 @@ struct DesktopNameChanged {
 //     DesktopChanged(WebDesktop),
 // }
 
-fn start_desktop_event_thread(window: &Window) {
+fn emit_desktop_event_thread(window: &Window) {
     use winvd::{listen_desktop_events, DesktopEvent};
 
     let window = window.clone();
@@ -67,7 +67,7 @@ fn start_desktop_event_thread(window: &Window) {
             match m {
                 DesktopEvent::DesktopChanged { new, old: _ } => {
                     window
-                        .emit("desktopChanged", WebDesktop::from(new))
+                        .emit("virtual_desktop_changed", WebDesktop::from(new))
                         .unwrap();
                 }
                 _ => {}
@@ -110,7 +110,7 @@ fn setup_native_shadows(window: &impl raw_window_handle::HasRawWindowHandle) {
 }
 
 #[tauri::command]
-fn show_window(window: Window) {
+fn monitoring_show_window(window: Window) {
     match window.raw_window_handle() {
         #[cfg(target_os = "windows")]
         raw_window_handle::RawWindowHandle::Win32(handle) => {
@@ -124,13 +124,13 @@ fn show_window(window: Window) {
             }
         }
         _ => {
-            window.show().unwrap();
+            let _ = window.show();
         }
     }
 }
 
 #[tauri::command]
-fn hide_window(window: Window) {
+fn monitoring_hide_window(window: Window) {
     match window.raw_window_handle() {
         #[cfg(target_os = "windows")]
         raw_window_handle::RawWindowHandle::Win32(handle) => {
@@ -143,20 +143,66 @@ fn hide_window(window: Window) {
             }
         }
         _ => {
-            window.show().unwrap();
+            let _ = window.hide();
         }
     }
 }
 
 #[tauri::command]
-fn running_changed(app: tauri::AppHandle, running: bool) {
+fn monitoring_running_changed(app: tauri::AppHandle, running: bool) {
     let icon = if running {
         ICON_RUNNING.with(|i| i.clone())
     } else {
         ICON_STOPPED.with(|i| i.clone())
     };
-    app.tray_handle().set_icon(icon).unwrap();
+    let _ = app.tray_handle().set_icon(icon);
 }
+
+#[tauri::command]
+fn monitoring_connected() -> MainConnected {
+    MainConnected {
+        desktop: WebDesktop::from(get_current_desktop().unwrap()),
+        personDetectorConnected: false,
+        personIsVisible: false,
+    }
+}
+
+#[tauri::command]
+fn monitoring_change_desktop_name(name: String) {
+    let _ = get_current_desktop().map(|d| d.set_name(&name));
+}
+
+fn emit_focus_and_blur_events(window: &Window) {
+    let win2 = window.clone();
+    window.on_window_event(move |f| match f {
+        WindowEvent::Focused(true) => {
+            let _ = win2.emit("focus", ());
+        }
+        WindowEvent::Focused(false) => {
+            let _ = win2.emit("blur", ());
+        }
+        _ => {}
+    });
+}
+
+fn emit_monitoring_person_detected(window: &Window) {
+    let _ = window.emit("monitoring_person_detected", true);
+}
+
+fn emit_monitoring_person_detector_connection(window: &Window) {
+    let _ = window.emit("monitoring_person_detector_connection", false);
+}
+
+// fn listen_desktop_events(window: &Window) {
+//     window.listen("desktopNameChanged", |ev| {
+//         if let Some(str) = ev.payload() {
+//             if let Ok(desktop) = serde_json::from_str::<DesktopNameChanged>(str) {
+//                 println!("Change desktop name {}", &desktop.name);
+//                 let _ = get_current_desktop().map(|d| d.set_name(&desktop.name));
+//             }
+//         }
+//     });
+// }
 
 thread_local! {
     static ICON_RUNNING: Icon = Icon::Raw(include_bytes!("../icons/icon-running.ico").to_vec());
@@ -172,62 +218,11 @@ fn main() {
             let window = app.get_window("main").unwrap();
             window.open_devtools();
             pin_to_all_desktops(&window);
-            start_desktop_event_thread(&window);
+            emit_desktop_event_thread(&window);
             setup_native_shadows(&window);
+            emit_focus_and_blur_events(&window);
+            // listen_desktop_events(&window);
 
-            // On desktop change notify the window
-            // window.listen("desktopChanged", |ev| {
-            //     if let Some(str) = ev.payload() {
-            //         if let Ok(desktop) = serde_json::from_str::<WebDesktop>(str) {
-            //             println!("Change desktop name {} {}", desktop.index, &desktop.name);
-            //             let _ = get_desktop(desktop.index).set_name(&desktop.name);
-            //         }
-            //     }
-            // });
-            let win2 = window.clone();
-            window.on_window_event(move |f| match f {
-                WindowEvent::Focused(true) => {
-                    let _ = win2.emit("focus", ());
-                }
-                WindowEvent::Focused(false) => {
-                    let _ = win2.emit("blur", ());
-                }
-                _ => (),
-            });
-
-            window.listen("desktopNameChanged", |ev| {
-                if let Some(str) = ev.payload() {
-                    if let Ok(desktop) = serde_json::from_str::<DesktopNameChanged>(str) {
-                        println!("Change desktop name {}", &desktop.name);
-                        let _ = get_current_desktop().map(|d| d.set_name(&desktop.name));
-                    }
-                }
-            });
-            // let tray_handle = app.tray_handle();
-            // window.listen("projectMonitoringIsRunningChanged", |ev| {
-            //     if let Some(str) = ev.payload() {
-            //         if let Ok(desktop) = serde_json::from_str::<bool>(str) {
-            //             ICON_STOPPED.with(|v| {
-            //                 app.tray_handle().set_icon(v.clone()).unwrap();
-            //             });
-            //         }
-            //     }
-            // });
-
-            // Wait until the project monitoring window is connected
-            let win2 = window.clone();
-            window.listen("projectMonitoringConnected", move |_ev| {
-                println!("projectMonitoringConnected");
-                win2.emit(
-                    "mainConnected",
-                    MainConnected {
-                        desktop: WebDesktop::from(get_current_desktop().unwrap()),
-                        personDetectorConnected: false,
-                        personIsVisible: false,
-                    },
-                )
-                .unwrap();
-            });
             Ok(())
         })
         .system_tray(system_tray)
@@ -240,7 +235,7 @@ fn main() {
             }
             tauri::SystemTrayEvent::LeftClick { .. } => {
                 let window = app.get_window("main").unwrap();
-                window.emit("trayClick", true).unwrap();
+                window.emit("tray_left_click", ()).unwrap();
             }
             // tauri::SystemTrayEvent::RightClick {
             //     tray_id,
@@ -259,9 +254,11 @@ fn main() {
         // .manage(Mutex::new(event_thread))
         // .invoke_handler(tauri::generate_handler![desktop_event_process])
         .invoke_handler(tauri::generate_handler![
-            show_window,
-            hide_window,
-            running_changed
+            monitoring_show_window,
+            monitoring_hide_window,
+            monitoring_running_changed,
+            monitoring_connected,
+            monitoring_change_desktop_name
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

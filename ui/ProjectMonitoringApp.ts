@@ -1,5 +1,5 @@
 import { makeObservable, observable, computed, action, reaction } from "https://esm.sh/mobx";
-import { IPCProtocol, TauriProtocol } from "./IpcProtocol.ts";
+import { TauriProtocol } from "./IpcProtocol.ts";
 import { ProjectMonitoringDb } from "./ProjectMonitoringDb.ts";
 import { emptyTotals, TotalsCache } from "./TotalsCache.ts";
 import { cancellablePromise, CancellablePromise } from "./utils/cancellablePromise.ts";
@@ -22,7 +22,7 @@ export class ProjectMonitoringApp {
     @observable private isLoadingTotals = false;
     @observable private totals = emptyTotals();
 
-    private ipcRenderer: IPCProtocol;
+    private ipcRenderer: TauriProtocol = new TauriProtocol();
     private hideAfterTimeout = 0;
     private tickTimeout = 0;
     private updateTotalsTimeout = 0;
@@ -38,19 +38,17 @@ export class ProjectMonitoringApp {
 
         this.db.onInsertTiming.addListener(this.totalsCache.insertTiming, this.totalsCache);
 
-        this.ipcRenderer = new TauriProtocol();
-        this.ipcRenderer.on("desktopChanged", this.onChangeDesktop);
-        this.ipcRenderer.on("isVisiblePersonChanged", this.isPersonVisibleChanged);
-        this.ipcRenderer.on(
-            "personDetectorConnectionChanged",
+        this.ipcRenderer.onVirtulaDesktopChanged(this.onChangeDesktop);
+        this.ipcRenderer.onMonitoringPersonDetected(this.isPersonVisibleChanged);
+        this.ipcRenderer.onMonitoringPersonDetectorConnection(
             this.onPersonDetectorConnectionChange
         );
-        this.ipcRenderer.on("mainConnected", this.onMainConnected);
-        this.ipcRenderer.on("powerMonitorStatusChanged", this.onPowerMonitorChanges);
-        this.ipcRenderer.on("trayClick", this.onTrayClick);
-        this.ipcRenderer.on("blur", this.onBlurApp);
-        this.ipcRenderer.on("focus", this.onFocusApp);
-        this.ipcRenderer.send("projectMonitoringConnected");
+        this.ipcRenderer.onMonitoringPowerStatusChanged(this.onPowerMonitorChanges);
+        this.ipcRenderer.onTrayLeftClick(this.onTrayClick);
+        this.ipcRenderer.onBlur(this.onBlurApp);
+        this.ipcRenderer.onFocus(this.onFocusApp);
+
+        this.ipcRenderer.monitoring_connected().then(this.onMainConnected.bind(this));
 
         this.tickTimeout = setTimeout(this.tick, 0);
 
@@ -104,7 +102,7 @@ export class ProjectMonitoringApp {
         clearTimeout(this.hideAfterTimeout);
         if (this.ipcRenderer) {
             // setTimeout(() => {
-            this.ipcRenderer.send("projectMonitoringShow");
+            this.ipcRenderer.monitoring_show_window();
             // }, 30);
         }
         this.hideWait();
@@ -118,7 +116,7 @@ export class ProjectMonitoringApp {
             }
 
             if (this.ipcRenderer) {
-                this.ipcRenderer.send("projectMonitoringHide");
+                this.ipcRenderer.monitoring_hide_window();
             }
         }, 5000);
     };
@@ -246,7 +244,7 @@ export class ProjectMonitoringApp {
             if (newValue.isRunning) {
                 this.show();
             }
-            this.ipcRenderer.send("projectMonitoringIsRunningChanged", newValue.isRunning);
+            this.ipcRenderer.monitoring_running_changed(newValue.isRunning);
         }
 
         this.updateTotals();
@@ -287,9 +285,7 @@ export class ProjectMonitoringApp {
     };
 
     private sendDesktopName = () => {
-        this.ipcRenderer.send("desktopNameChanged", {
-            name: `${this.client}: ${this.project}`,
-        });
+        this.ipcRenderer.monitoring_change_desktop_name(`${this.client}: ${this.project}`);
     };
 
     @action
