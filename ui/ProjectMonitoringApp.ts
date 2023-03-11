@@ -4,6 +4,8 @@ import { ProjectMonitoringDb } from "./ProjectMonitoringDb.ts";
 import { emptyTotals, TotalsCache } from "./TotalsCache.ts";
 import { cancellablePromise, CancellablePromise } from "./utils/cancellablePromise.ts";
 
+declare function requestAnimationFrame(callback: () => void): void;
+
 function key(client: string, project: string) {
     return `${client}~${project}`;
 }
@@ -22,7 +24,7 @@ export class ProjectMonitoringApp {
 
     private ipcRenderer: IPCProtocol;
     private hideAfterTimeout = 0;
-    private listenerInterval = 0;
+    private tickTimeout = 0;
     private updateTotalsTimeout = 0;
     private sendDesktopNameBounceTimeout = 0;
     private db = new ProjectMonitoringDb(true);
@@ -50,7 +52,7 @@ export class ProjectMonitoringApp {
         this.ipcRenderer.on("focus", this.onFocusApp);
         this.ipcRenderer.send("projectMonitoringConnected");
 
-        this.listenerInterval = setInterval(this.tick, 1000);
+        this.tickTimeout = setTimeout(this.tick, 0);
 
         this.cleanReactionClientOrProjectChanges = reaction(
             () => ({
@@ -66,7 +68,7 @@ export class ProjectMonitoringApp {
         // Call this on componentWillUnmount
         this.db.onInsertTiming.removeListener(this.totalsCache.insertTiming);
 
-        clearInterval(this.listenerInterval);
+        clearTimeout(this.tickTimeout);
         clearTimeout(this.hideAfterTimeout);
         clearTimeout(this.sendDesktopNameBounceTimeout);
         clearTimeout(this.updateTotalsTimeout);
@@ -123,6 +125,10 @@ export class ProjectMonitoringApp {
 
     @action
     private tick = () => {
+        this.tickTimeout = setTimeout(() => {
+            requestAnimationFrame(this.tick);
+        }, 1000);
+
         if (!this.isRunning) {
             return;
         }

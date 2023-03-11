@@ -22,8 +22,9 @@ export class ProjectMonitoringDb {
     // Event listener hookup
     public onInsertTiming = simpleMapEvent<Timing, void>(this);
 
-    constructor(enableKeepAlive: boolean) {
+    constructor(private enableKeepAlive: boolean, now = new Date()) {
         if (enableKeepAlive) {
+            this.lastKeepAlive = new Date(now);
             this.keepAliveInterval = setInterval(() => this.keepAlive(), 30 * 1000);
         }
 
@@ -52,7 +53,7 @@ export class ProjectMonitoringDb {
                 client: this.client,
                 project: this.project,
                 start: this.start,
-                end: now,
+                end: new Date(now),
             });
             this.start = undefined;
         } else {
@@ -66,7 +67,7 @@ export class ProjectMonitoringDb {
                 client: this.client,
                 project: this.project,
                 start: this.start,
-                end: now,
+                end: new Date(now),
             };
         }
     }
@@ -76,6 +77,7 @@ export class ProjectMonitoringDb {
         if (
             this.start &&
             this.lastKeepAlive &&
+            this.lastKeepAlive.getTime() !== now.getTime() &&
             now.getTime() - this.lastKeepAlive.getTime() > 60 * 1000
         ) {
             console.warn("Keep alive didn't happen in time", this.lastKeepAlive, now);
@@ -84,13 +86,18 @@ export class ProjectMonitoringDb {
             this.stopTiming(this.lastKeepAlive);
 
             // Start the timing from current moment
-            this.startTiming({ client: this.client, project: this.project }, now);
+            this.startTiming({ client: this.client, project: this.project }, new Date(now));
         }
 
-        this.lastKeepAlive = now;
+        this.lastKeepAlive = new Date(now);
     }
 
     private insertTiming(timing: Timing) {
+        if (timing.start.getTime() >= timing.end.getTime()) {
+            console.warn("Timing is 0 or negative length", timing);
+            return;
+        }
+
         // Insert timing
         this.timings.push(timing);
 
