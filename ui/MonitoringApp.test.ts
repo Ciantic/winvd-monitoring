@@ -1,10 +1,10 @@
 import { assert, assertEquals } from "https://deno.land/std/testing/asserts.ts";
 import { autorun } from "https://esm.sh/mobx";
-import { ProjectMonitoringApp } from "./ProjectMonitoringApp.ts";
+import { MonitoringApp } from "./MonitoringApp.ts";
 
 Deno.test("Change client", () => {
     const names = [] as string[];
-    const app = new ProjectMonitoringApp();
+    const app = new MonitoringApp();
     const rend = app.render();
     autorun(() => {
         names.push(app.render().clientName);
@@ -15,7 +15,7 @@ Deno.test("Change client", () => {
 });
 
 Deno.test("Will this start?", () => {
-    const app = new ProjectMonitoringApp();
+    const app = new MonitoringApp();
     const rend = app.render();
     rend.onChangeClient("client1");
     rend.onChangeProject("project1");

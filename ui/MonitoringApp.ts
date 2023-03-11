@@ -10,7 +10,7 @@ function key(client: string, project: string) {
     return `${client}~${project}`;
 }
 
-export class ProjectMonitoringApp {
+export class MonitoringApp {
     @observable private isVisiblePerson = false;
     @observable private personDetectorConnected = false;
     @observable private isFocusedApp = false;

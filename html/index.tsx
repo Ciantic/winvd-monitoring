@@ -7,12 +7,12 @@ declare const __TAURI__: typeof import("npm:@tauri-apps/api");
 import { autorun } from "https://esm.sh/mobx";
 import { useState, useCallback, useEffect } from "https://esm.sh/preact/hooks";
 import { render } from "https://esm.sh/preact";
-import { ProjectMonitoringApp } from "../ui/ProjectMonitoringApp.ts";
+import { MonitoringApp } from "../ui/MonitoringApp.ts";
 import { Timings } from "../ui/components/Timings.tsx";
 
 const currentWindow = __TAURI__.window.getCurrent();
 
-const app = new ProjectMonitoringApp();
+const app = new MonitoringApp();
 
 const App = () => {
     const [state, setState] = useState(() => app.render());
