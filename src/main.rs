@@ -35,8 +35,8 @@ impl From<winvd::Desktop> for WebDesktop {
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
 struct MainConnected {
     desktop: WebDesktop,
-    personDetectorConnected: bool,
-    personIsVisible: bool,
+    person_detector_connected: bool,
+    person_is_visible: bool,
 }
 
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
@@ -162,8 +162,8 @@ fn monitoring_running_changed(app: tauri::AppHandle, running: bool) {
 fn monitoring_connected() -> MainConnected {
     MainConnected {
         desktop: WebDesktop::from(get_current_desktop().unwrap()),
-        personDetectorConnected: false,
-        personIsVisible: false,
+        person_detector_connected: false,
+        person_is_visible: false,
     }
 }
 
@@ -225,6 +225,7 @@ fn main() {
 
             Ok(())
         })
+        .plugin(tauri_plugin_sql::Builder::default().build())
         .system_tray(system_tray)
         .on_system_tray_event(|app, event| match event {
             tauri::SystemTrayEvent::MenuItemClick { id, .. } => {

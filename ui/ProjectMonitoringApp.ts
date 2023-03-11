@@ -48,7 +48,7 @@ export class ProjectMonitoringApp {
         this.ipcRenderer.onBlur(this.onBlurApp);
         this.ipcRenderer.onFocus(this.onFocusApp);
 
-        this.ipcRenderer.monitoring_connected().then(this.onMainConnected.bind(this));
+        this.ipcRenderer.monitoringConnected().then(this.onMainConnected.bind(this));
 
         this.tickTimeout = setTimeout(this.tick, 0);
 
@@ -102,7 +102,7 @@ export class ProjectMonitoringApp {
         clearTimeout(this.hideAfterTimeout);
         if (this.ipcRenderer) {
             // setTimeout(() => {
-            this.ipcRenderer.monitoring_show_window();
+            this.ipcRenderer.monitoringShowWindow();
             // }, 30);
         }
         this.hideWait();
@@ -116,7 +116,7 @@ export class ProjectMonitoringApp {
             }
 
             if (this.ipcRenderer) {
-                this.ipcRenderer.monitoring_hide_window();
+                this.ipcRenderer.monitoringHideWindow();
             }
         }, 5000);
     };
@@ -244,7 +244,7 @@ export class ProjectMonitoringApp {
             if (newValue.isRunning) {
                 this.show();
             }
-            this.ipcRenderer.monitoring_running_changed(newValue.isRunning);
+            this.ipcRenderer.monitoringRunningChanged(newValue.isRunning);
         }
 
         this.updateTotals();
@@ -285,7 +285,7 @@ export class ProjectMonitoringApp {
     };
 
     private sendDesktopName = () => {
-        this.ipcRenderer.monitoring_change_desktop_name(`${this.client}: ${this.project}`);
+        this.ipcRenderer.monitoringChangeDesktopName(`${this.client}: ${this.project}`);
     };
 
     @action
@@ -296,11 +296,11 @@ export class ProjectMonitoringApp {
     @action
     private onMainConnected = (data: {
         desktop: { index: number; name: string };
-        personDetectorConnected: boolean;
-        personIsVisible: boolean;
+        person_detector_connected: boolean;
+        person_is_visible: boolean;
     }) => {
-        this.personDetectorConnected = data.personDetectorConnected;
-        this.isVisiblePerson = data.personIsVisible;
+        this.personDetectorConnected = data.person_detector_connected;
+        this.isVisiblePerson = data.person_is_visible;
         // this.updateDesktopsFromLocalDb().then(() => {
         this.onChangeDesktop(data.desktop);
         // });

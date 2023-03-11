@@ -7,7 +7,7 @@ license = ""
 repository = ""
 default-run = "app"
 edition = "2021"
-rust-version = "1.59"
+rust-version = "1.64"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -31,7 +31,11 @@ windows = { version = "0.44", features = [
     # "Win32_UI_WindowsAndMessaging", # for TranslateMessage etc.
 ] }
 
-# window-vibrancy = "*"
+[dependencies.tauri-plugin-sql]
+git = "https://github.com/tauri-apps/plugins-workspace"
+branch = "dev"
+features = ["sqlite"]                                   # or "postgres", or "mysql"
+
 
 [features]
 # by default Tauri runs in production mode
