@@ -15,16 +15,24 @@ export class ProjectMonitoringDb {
     private client = "";
     private project = "";
     private start?: Date;
+    private lastKeepAlive?: Date;
+    private keepAliveInterval = 0;
     private timings: Timing[] = [];
 
     // Event listener hookup
     public onInsertTiming = simpleMapEvent<Timing, void>(this);
 
-    constructor() {
+    constructor(enableKeepAlive: boolean) {
+        if (enableKeepAlive) {
+            this.keepAliveInterval = setInterval(() => this.keepAlive(), 30 * 1000);
+        }
+
         // TODO: Periodically save timings to database
     }
 
-    public destroy() {}
+    public destroy() {
+        clearInterval(this.keepAliveInterval);
+    }
 
     public startTiming({ client, project }: ClientAndProject, now = new Date()) {
         if (this.start) {
@@ -36,6 +44,9 @@ export class ProjectMonitoringDb {
     }
 
     public stopTiming(now = new Date()) {
+        if (this.lastKeepAlive) {
+            this.keepAlive(now);
+        }
         if (this.start) {
             this.insertTiming({
                 client: this.client,
@@ -58,6 +69,25 @@ export class ProjectMonitoringDb {
                 end: now,
             };
         }
+    }
+
+    private keepAlive(now = new Date()) {
+        // If the length exceeds the max, stop the timing and start a new one
+        if (
+            this.start &&
+            this.lastKeepAlive &&
+            now.getTime() - this.lastKeepAlive.getTime() > 60 * 1000
+        ) {
+            console.warn("Keep alive didn't happen in time", this.lastKeepAlive, now);
+
+            // Stop the timing on the last known good value
+            this.stopTiming(this.lastKeepAlive);
+
+            // Start the timing from current moment
+            this.startTiming({ client: this.client, project: this.project }, now);
+        }
+
+        this.lastKeepAlive = now;
     }
 
     private insertTiming(timing: Timing) {

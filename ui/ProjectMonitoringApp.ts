@@ -25,7 +25,7 @@ export class ProjectMonitoringApp {
     private listenerInterval = 0;
     private updateTotalsTimeout = 0;
     private sendDesktopNameBounceTimeout = 0;
-    private db = new ProjectMonitoringDb();
+    private db = new ProjectMonitoringDb(true);
     private lastUpdateFromDb?: CancellablePromise<void>;
     private totalsCache = new TotalsCache();
 
