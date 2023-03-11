@@ -22,7 +22,7 @@ export class ProjectMonitoringDb {
     // Event listener hookup
     public onInsertTiming = simpleMapEvent<Timing, void>(this);
 
-    constructor(private enableKeepAlive: boolean, now = new Date()) {
+    constructor(enableKeepAlive: boolean, now = new Date()) {
         if (enableKeepAlive) {
             this.lastKeepAlive = new Date(now);
             this.keepAliveInterval = setInterval(() => this.keepAlive(), 30 * 1000);
@@ -45,9 +45,7 @@ export class ProjectMonitoringDb {
     }
 
     public stopTiming(now = new Date()) {
-        if (this.lastKeepAlive) {
-            this.keepAlive(now);
-        }
+        this.keepAlive(now);
         if (this.start) {
             this.insertTiming({
                 client: this.client,
@@ -63,6 +61,7 @@ export class ProjectMonitoringDb {
 
     public getCurrentTiming(now = new Date()) {
         if (this.start) {
+            this.keepAlive(now);
             return {
                 client: this.client,
                 project: this.project,
@@ -77,16 +76,20 @@ export class ProjectMonitoringDb {
         if (
             this.start &&
             this.lastKeepAlive &&
-            this.lastKeepAlive.getTime() !== now.getTime() &&
             now.getTime() - this.lastKeepAlive.getTime() > 60 * 1000
         ) {
             console.warn("Keep alive didn't happen in time", this.lastKeepAlive, now);
 
-            // Stop the timing on the last known good value
-            this.stopTiming(this.lastKeepAlive);
+            // Segment the timing on last known good value
+            this.insertTiming({
+                client: this.client,
+                project: this.project,
+                start: this.start,
+                end: new Date(this.lastKeepAlive),
+            });
 
-            // Start the timing from current moment
-            this.startTiming({ client: this.client, project: this.project }, new Date(now));
+            // Start a new timing
+            this.start = new Date(now);
         }
 
         this.lastKeepAlive = new Date(now);
@@ -94,7 +97,10 @@ export class ProjectMonitoringDb {
 
     private insertTiming(timing: Timing) {
         if (timing.start.getTime() >= timing.end.getTime()) {
-            console.warn("Timing is 0 or negative length", timing);
+            console.warn(
+                "Timing is 0 or negative length, this may happen if keep alive is not called in time",
+                timing
+            );
             return;
         }
 
