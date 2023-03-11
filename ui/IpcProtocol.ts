@@ -1,7 +1,32 @@
 declare const __TAURI__: typeof import("npm:@tauri-apps/api");
 
-const invoke = __TAURI__.invoke;
-const listen = __TAURI__.event.listen;
+function invoke(name: string, payload?: any): Promise<any> {
+    if (typeof __TAURI__ !== "undefined") {
+        return __TAURI__.invoke(name, payload);
+    }
+    console.log("invoke", name, payload);
+
+    // For tests
+    if (name === "monitoring_connected") {
+        return Promise.resolve({
+            desktop: { index: 0, name: "Desktop 1" },
+            person_detector_connected: false,
+            person_is_visible: false,
+        });
+    }
+
+    return Promise.resolve();
+}
+
+function listen(name: string, cb: (e: any) => void): Promise<any> {
+    if (typeof __TAURI__ !== "undefined") {
+        return __TAURI__.event.listen(name, (e) => {
+            cb(e.payload);
+        });
+    }
+    console.log("listen", name, cb);
+    return Promise.resolve();
+}
 
 export class TauriProtocol {
     monitoringChangeDesktopName(name: string): Promise<void> {
@@ -25,44 +50,30 @@ export class TauriProtocol {
     }
 
     onVirtulaDesktopChanged(cb: (desktop: { index: number; name: string }) => void): void {
-        listen("virtual_desktop_changed", (e) => {
-            cb(e.payload as any);
-        });
+        listen("virtual_desktop_changed", cb);
     }
 
     onMonitoringPersonDetected(cb: (personIsVisible: boolean) => void): void {
-        listen("monitoring_person_detected", (e) => {
-            cb(e.payload as any);
-        });
+        listen("monitoring_person_detected", cb);
     }
 
     onMonitoringPersonDetectorConnection(cb: (personDetectorConnected: boolean) => void): void {
-        listen("monitoring_person_detector_connection", (e) => {
-            cb(e.payload as any);
-        });
+        listen("monitoring_person_detector_connection", cb);
     }
 
     onMonitoringPowerStatusChanged(cb: (event: "suspend" | "resume") => void): void {
-        listen("monitoring_power_status_changed", (e) => {
-            cb(e.payload as any);
-        });
+        listen("monitoring_power_status_changed", cb);
     }
 
     onTrayLeftClick(cb: () => void): void {
-        listen("tray_left_click", () => {
-            cb();
-        });
+        listen("tray_left_click", cb);
     }
 
     onBlur(cb: () => void): void {
-        listen("blur", () => {
-            cb();
-        });
+        listen("blur", cb);
     }
 
     onFocus(cb: () => void): void {
-        listen("focus", () => {
-            cb();
-        });
+        listen("focus", cb);
     }
 }

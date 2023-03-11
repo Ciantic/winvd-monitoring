@@ -1,6 +1,6 @@
 import { makeObservable, observable, computed, action, reaction } from "https://esm.sh/mobx";
 import { TauriProtocol } from "./IpcProtocol.ts";
-import { ProjectMonitoringDb } from "./ProjectMonitoringDb.ts";
+import { TimingRecorder } from "./TimingRecorder.ts";
 import { emptyTotals, TotalsCache } from "./TotalsCache.ts";
 import { cancellablePromise, CancellablePromise } from "./utils/cancellablePromise.ts";
 
@@ -27,7 +27,7 @@ export class ProjectMonitoringApp {
     private tickTimeout = 0;
     private updateTotalsTimeout = 0;
     private sendDesktopNameBounceTimeout = 0;
-    private db = new ProjectMonitoringDb(true);
+    private recorder = new TimingRecorder(true);
     private lastUpdateFromDb?: CancellablePromise<void>;
     private totalsCache = new TotalsCache();
 
@@ -36,7 +36,7 @@ export class ProjectMonitoringApp {
     constructor() {
         makeObservable(this);
 
-        this.db.onInsertTiming.addListener(this.totalsCache.insertTiming, this.totalsCache);
+        this.recorder.onInsertTiming.addListener(this.totalsCache.insertTiming, this.totalsCache);
 
         this.ipcRenderer.onVirtulaDesktopChanged(this.onChangeDesktop);
         this.ipcRenderer.onMonitoringPersonDetected(this.isPersonVisibleChanged);
@@ -64,7 +64,7 @@ export class ProjectMonitoringApp {
 
     destroy() {
         // Call this on componentWillUnmount
-        this.db.onInsertTiming.removeListener(this.totalsCache.insertTiming);
+        this.recorder.onInsertTiming.removeListener(this.totalsCache.insertTiming);
 
         clearTimeout(this.tickTimeout);
         clearTimeout(this.hideAfterTimeout);
@@ -74,7 +74,7 @@ export class ProjectMonitoringApp {
         if (this.lastUpdateFromDb) {
             this.lastUpdateFromDb.cancel();
         }
-        this.db.destroy();
+        this.recorder.destroy();
     }
 
     render() {
@@ -183,7 +183,7 @@ export class ProjectMonitoringApp {
 
     private get currentTiming() {
         return (
-            this.db.getCurrentTiming() ?? {
+            this.recorder.getCurrent() ?? {
                 client: this.client,
                 project: this.project,
             }
@@ -227,10 +227,10 @@ export class ProjectMonitoringApp {
         const now = new Date();
         // If the last value was running, store it
         if (oldValue.isRunning) {
-            this.db.stopTiming(now);
+            this.recorder.stop(now);
         }
         if (newValue.isRunning) {
-            this.db.startTiming(
+            this.recorder.start(
                 {
                     client: this.client,
                     project: this.project,

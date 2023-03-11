@@ -11,10 +11,10 @@ export interface Timing {
     end: Date;
 }
 
-export class ProjectMonitoringDb {
+export class TimingRecorder {
     private client = "";
     private project = "";
-    private start?: Date;
+    private started?: Date;
     private lastKeepAlive?: Date;
     private keepAliveInterval = 0;
     private timings: Timing[] = [];
@@ -35,37 +35,37 @@ export class ProjectMonitoringDb {
         clearInterval(this.keepAliveInterval);
     }
 
-    public startTiming({ client, project }: ClientAndProject, now = new Date()) {
-        if (this.start) {
+    public start({ client, project }: ClientAndProject, now = new Date()) {
+        if (this.started) {
             throw new Error("Already timing");
         }
         this.client = client;
         this.project = project;
-        this.start = new Date(now);
+        this.started = new Date(now);
     }
 
-    public stopTiming(now = new Date()) {
+    public stop(now = new Date()) {
         this.keepAlive(now);
-        if (this.start) {
+        if (this.started) {
             this.insertTiming({
                 client: this.client,
                 project: this.project,
-                start: this.start,
+                start: this.started,
                 end: new Date(now),
             });
-            this.start = undefined;
+            this.started = undefined;
         } else {
             throw new Error("Not timing");
         }
     }
 
-    public getCurrentTiming(now = new Date()) {
-        if (this.start) {
+    public getCurrent(now = new Date()) {
+        if (this.started) {
             this.keepAlive(now);
             return {
                 client: this.client,
                 project: this.project,
-                start: this.start,
+                start: this.started,
                 end: new Date(now),
             };
         }
@@ -74,7 +74,7 @@ export class ProjectMonitoringDb {
     private keepAlive(now = new Date()) {
         // If the length exceeds the max, stop the timing and start a new one
         if (
-            this.start &&
+            this.started &&
             this.lastKeepAlive &&
             now.getTime() - this.lastKeepAlive.getTime() > 60 * 1000
         ) {
@@ -84,12 +84,12 @@ export class ProjectMonitoringDb {
             this.insertTiming({
                 client: this.client,
                 project: this.project,
-                start: this.start,
+                start: this.started,
                 end: new Date(this.lastKeepAlive),
             });
 
             // Start a new timing
-            this.start = new Date(now);
+            this.started = new Date(now);
         }
 
         this.lastKeepAlive = new Date(now);

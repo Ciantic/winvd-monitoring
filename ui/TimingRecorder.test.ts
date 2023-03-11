@@ -1,14 +1,14 @@
 import { assertEquals } from "https://deno.land/std/testing/asserts.ts";
-import { ProjectMonitoringDb, Timing } from "./ProjectMonitoringDb.ts";
+import { TimingRecorder, Timing } from "./TimingRecorder.ts";
 
 Deno.test("Timings stored", () => {
-    const app = new ProjectMonitoringDb(false);
+    const app = new TimingRecorder(false);
     const timings: Timing[] = [];
     app.onInsertTiming.addListener((timing) => {
         timings.push(timing);
     });
-    app.startTiming({ client: "client1", project: "project1" }, new Date(1999, 1, 1, 0));
-    app.stopTiming(new Date(1999, 1, 1, 5));
+    app.start({ client: "client1", project: "project1" }, new Date(1999, 1, 1, 0));
+    app.stop(new Date(1999, 1, 1, 5));
     app.destroy();
     assertEquals(timings, [
         {
@@ -21,12 +21,12 @@ Deno.test("Timings stored", () => {
 });
 
 Deno.test("Timings keepalive", () => {
-    const app = new ProjectMonitoringDb(true, new Date(1000000));
+    const app = new TimingRecorder(true, new Date(1000000));
     const timings: Timing[] = [];
     app.onInsertTiming.addListener((timing) => {
         timings.push(timing);
     });
-    app.startTiming({ client: "client1", project: "project1" }, new Date(1000000));
+    app.start({ client: "client1", project: "project1" }, new Date(1000000));
 
     (app as any).keepAlive(new Date(1030000));
     (app as any).keepAlive(new Date(1060000));
@@ -37,7 +37,7 @@ Deno.test("Timings keepalive", () => {
     (app as any).keepAlive(new Date(2000000));
     (app as any).keepAlive(new Date(2030000));
     // It ends here, because this gap is greater than a minute
-    app.stopTiming(new Date(3000000));
+    app.stop(new Date(3000000));
 
     app.destroy();
     assertEquals(timings, [
