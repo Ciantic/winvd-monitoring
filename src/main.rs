@@ -211,8 +211,8 @@ thread_local! {
 
 fn main() {
     let tray_menu = SystemTrayMenu::new().add_item(CustomMenuItem::new("quit", "Quit"));
-
     let system_tray = SystemTray::new().with_menu(tray_menu);
+
     tauri::Builder::default()
         .setup(move |app| {
             let window = app.get_window("main").unwrap();
@@ -221,8 +221,6 @@ fn main() {
             emit_desktop_event_thread(&window);
             setup_native_shadows(&window);
             emit_focus_and_blur_events(&window);
-            // listen_desktop_events(&window);
-
             Ok(())
         })
         .plugin(tauri_plugin_sql::Builder::default().build())
@@ -261,7 +259,14 @@ fn main() {
             monitoring_connected,
             monitoring_change_desktop_name
         ])
-        .run(tauri::generate_context!())
+        .run({
+            let mut ctx = tauri::generate_context!();
+            if cfg!(debug_assertions) {
+                ctx.config_mut().tauri.bundle.identifier =
+                    "com.oksidi.WinVDMonitor.Debug".to_string();
+            }
+            ctx
+        })
         .expect("error while running tauri application");
     println!("Exit?");
 }
