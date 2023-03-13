@@ -119,7 +119,8 @@ export class TotalsCache {
     }
 
     private updateDailyTotalsFromApi(
-        clientAndProject: ClientAndProject
+        clientAndProject: ClientAndProject,
+        now = new Date()
     ): undefined | (() => Promise<void>) {
         const kv = key(clientAndProject);
         if (this.apiLoadedClientsAndProjects.has(kv)) {
@@ -127,7 +128,28 @@ export class TotalsCache {
         }
         this.apiLoadedClientsAndProjects.add(kv);
 
+        return () =>
+            this.getTotalsFromDb({
+                from: subDays(startOfDay(now), 90),
+                to: now,
+                client: clientAndProject.client,
+                project: clientAndProject.project,
+            })
+                .then((totals) => {
+                    for (const { day, hours } of totals) {
+                        this.dailyTotalsAsProjectAndClient
+                            .getDefault(kv)
+                            .updateDefault(day.getTime(), (value) => value + hours);
+                    }
+                })
+                .catch((error) => {
+                    console.error("API failed getTotalsFromDb", error);
+                    // API Call failed, it needs to be retried next time
+                    this.apiLoadedClientsAndProjects.delete(kv);
+                });
+
         // Simulate API call
+        /*
         return () =>
             new Promise<void>((resolve) => {
                 console.log("HIT DB", kv);
@@ -150,5 +172,6 @@ export class TotalsCache {
                 // API Call failed, it needs to be retried next time
                 this.apiLoadedClientsAndProjects.delete(kv);
             });
+            */
     }
 }

@@ -112,13 +112,13 @@ export class TimingDb {
         await this.db.execute(TIMING_SCHEMA.sql);
     }
 
-    async __getClients(): Promise<[number, string][]> {
+    async __getClients(): Promise<{ id: number; name: string }[]> {
         const query = sql`SELECT id, name FROM client`;
-        return await this.db.select<[number, string][]>(query.sql, query.params);
+        return await this.db.select(query.sql, query.params);
     }
-    async __getProjects(): Promise<[number, string][]> {
+    async __getProjects(): Promise<{ id: number; name: string }[]> {
         const query = sql`SELECT id, name FROM project`;
-        return await this.db.select<[number, string][]>(query.sql, query.params);
+        return await this.db.select(query.sql, query.params);
     }
 
     async __insertClients(clients_: string[]) {
@@ -129,8 +129,8 @@ export class TimingDb {
         const query = sql`
             SELECT id, name FROM client WHERE name IN ${clients}
         `;
-        const res = await this.db.select<[number, string][]>(query.sql, query.params);
-        for (const [id, name] of res) {
+        const res = await this.db.select<{ id: number; name: string }>(query.sql, query.params);
+        for (const { id, name } of res) {
             clientsById[name] = id;
         }
 
@@ -144,9 +144,9 @@ export class TimingDb {
                 INSERT INTO client as c (name) VALUES (${clientName}) 
                 RETURNING id
             `;
-            const res = await this.db.select<[[number]]>(query.sql, query.params);
+            const res = await this.db.select<{ id: number }>(query.sql, query.params);
             if (res.length > 0) {
-                clientsById[clientName] = res[0][0];
+                clientsById[clientName] = res[0].id;
             }
         }
         return clientsById;
@@ -164,8 +164,12 @@ export class TimingDb {
             )})
         `;
 
-        const values = await this.db.select<[number, number, string][]>(query.sql, query.params);
-        for (const [id, clientId, name] of values) {
+        const values = await this.db.select<{
+            id: number;
+            clientId: number;
+            name: string;
+        }>(query.sql, query.params);
+        for (const { id, clientId, name } of values) {
             projectIdsByClientId[clientId] = projectIdsByClientId[clientId] || {};
             projectIdsByClientId[clientId][name] = id;
         }
@@ -184,10 +188,10 @@ export class TimingDb {
                 RETURNING id
             `;
 
-            const res = await this.db.select<[[number]]>(query.sql, query.params);
+            const res = await this.db.select<{ id: number }>(query.sql, query.params);
             if (res.length > 0) {
                 projectIdsByClientId[clientId] = projectIdsByClientId[clientId] || {};
-                projectIdsByClientId[clientId][name] = res[0][0];
+                projectIdsByClientId[clientId][name] = res[0].id;
             }
         }
         return projectIdsByClientId;
@@ -247,15 +251,17 @@ export class TimingDb {
             ${input?.from ? sql`AND timing.start >= ${input.from.getTime()}` : sql``}
             ${input?.to ? sql`AND timing.end <= ${input.to.getTime()}` : sql``}
         `;
-        const rows = await this.db.select<[number, number, string, string][]>(
-            query.sql,
-            query.params
-        );
+        const rows = await this.db.select<{
+            start: number;
+            end: number;
+            project: string;
+            client: string;
+        }>(query.sql, query.params);
         return rows.map((row) => ({
-            start: new Date(row[0]),
-            end: new Date(row[1]),
-            project: row[2],
-            client: row[3],
+            start: new Date(row.start),
+            end: new Date(row.end),
+            project: row.project,
+            client: row.client,
         }));
     }
 
@@ -292,16 +298,18 @@ export class TimingDb {
             ORDER BY start DESC
         `;
 
-        const rows = await this.db.select<[string, number, string, string][]>(
-            query.sql,
-            query.params
-        );
+        const rows = await this.db.select<{
+            day: string;
+            hours: number;
+            project: string;
+            client: string;
+        }>(query.sql, query.params);
 
         return rows.map((row) => ({
-            day: new Date(row[0]),
-            hours: row[1],
-            project: row[2],
-            client: row[3],
+            day: new Date(row.day),
+            hours: row.hours,
+            project: row.project,
+            client: row.client,
         }));
     }
 }

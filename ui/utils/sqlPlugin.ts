@@ -15,7 +15,7 @@ export interface IDatabase {
     onInit(cb: () => Promise<void>): void;
     init(): Promise<void>;
     execute(query: string, bindValues?: unknown[]): Promise<QueryResult>;
-    select<T>(query: string, bindValues?: unknown[]): Promise<T>;
+    select<T extends Record<string, unknown>>(query: string, bindValues?: unknown[]): Promise<T[]>;
     close(db?: string): Promise<boolean>;
 }
 
@@ -59,8 +59,8 @@ export default class Database implements IDatabase {
         };
     }
 
-    async select<T>(query: string, bindValues?: unknown[]): Promise<T> {
-        const result = await invoke<T>("plugin:sql|select", {
+    async select<T>(query: string, bindValues?: unknown[]): Promise<T[]> {
+        const result = await invoke<T[]>("plugin:sql|select", {
             db: await this.load(),
             query,
             values: bindValues ?? [],

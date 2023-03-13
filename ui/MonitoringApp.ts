@@ -28,10 +28,10 @@ export class MonitoringApp {
     private tickTimeout = 0;
     private updateTotalsTimeout = 0;
     private sendDesktopNameBounceTimeout = 0;
-    private recorder = new TimingRecorder(true);
-    private lastUpdateFromDb?: CancellablePromise<void>;
-    private timingDb = new TimingDb("projects.db");
+    private timingDb = new TimingDb("sqlite:projects.db");
+    private recorder = new TimingRecorder(true, this.timingDb.insertTimings.bind(this.timingDb));
     private totalsCache = new TotalsCache(this.timingDb.getDailyTotals.bind(this.timingDb));
+    private lastUpdateFromDb?: CancellablePromise<void>;
 
     private cleanReactionClientOrProjectChanges: () => void;
 

@@ -1,3 +1,4 @@
+import { TimingDb } from "./TimingDb.ts";
 import { simpleMapEvent } from "./utils/simpleMapEvent.ts";
 
 interface ClientAndProject {
@@ -22,7 +23,13 @@ export class TimingRecorder {
     // Event listener hookup
     public onInsertTiming = simpleMapEvent<Timing, void>(this);
 
-    constructor(enableKeepAlive: boolean, now = new Date()) {
+    constructor(
+        enableKeepAlive: boolean,
+        private save: (
+            timings: { start: Date; end: Date; project: string; client: string }[]
+        ) => Promise<void>,
+        now = new Date()
+    ) {
         if (enableKeepAlive) {
             this.lastKeepAlive = new Date(now);
             this.keepAliveInterval = setInterval(() => this.keepAlive(), 30 * 1000);
@@ -109,5 +116,7 @@ export class TimingRecorder {
 
         // Send event to listeners
         this.onInsertTiming.trigger(timing);
+
+        this.save([timing]);
     }
 }
