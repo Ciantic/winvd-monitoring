@@ -1,5 +1,6 @@
 import { makeObservable, observable, computed, action, reaction } from "https://esm.sh/mobx";
 import { TauriProtocol } from "./IpcProtocol.ts";
+import { TimingDb } from "./TimingDb.ts";
 import { TimingRecorder } from "./TimingRecorder.ts";
 import { emptyTotals, TotalsCache } from "./TotalsCache.ts";
 import { cancellablePromise, CancellablePromise } from "./utils/cancellablePromise.ts";
@@ -29,7 +30,8 @@ export class MonitoringApp {
     private sendDesktopNameBounceTimeout = 0;
     private recorder = new TimingRecorder(true);
     private lastUpdateFromDb?: CancellablePromise<void>;
-    private totalsCache = new TotalsCache();
+    private timingDb = new TimingDb("projects.db");
+    private totalsCache = new TotalsCache(this.timingDb.getDailyTotals.bind(this.timingDb));
 
     private cleanReactionClientOrProjectChanges: () => void;
 

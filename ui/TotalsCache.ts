@@ -1,4 +1,5 @@
 import { startOfDay, subDays } from "https://cdn.skypack.dev/date-fns";
+import { TimingDb } from "./TimingDb.ts";
 import { asDefaultMap, DefaultMap } from "./utils/asDefaultMap.ts";
 import { getDailyTotals, splitTotals, splitTotalsFrom } from "./utils/splitTotals.ts";
 
@@ -62,6 +63,22 @@ export class TotalsCache {
     >(() => asDefaultMap<DayTimestamp, TotalHours>(() => 0));
 
     private apiLoadedClientsAndProjects = new Set<ClientAndProjectKey>();
+
+    constructor(
+        private getTotalsFromDb: (input: {
+            from: Date;
+            to: Date;
+            client?: string;
+            project?: string;
+        }) => Promise<
+            {
+                day: Date;
+                hours: number;
+                client: string;
+                project: string;
+            }[]
+        >
+    ) {}
 
     public insertTiming(timing: Timing) {
         // Add to daily totals

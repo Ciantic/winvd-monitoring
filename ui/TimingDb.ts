@@ -247,15 +247,17 @@ export class TimingDb {
         }));
     }
 
-    public async dailyTotals(input: {
+    public async getDailyTotals(input: {
         from: Date;
         to: Date;
         client?: string;
         project?: string;
-    }): Promise<{ day: string; hours: number; client: string; project: string }[]> {
+    }): Promise<{ day: Date; hours: number; client: string; project: string }[]> {
+        // This implementation of daily totals can't split multiday timespan to multiple days
+
         const query = sql`
             SELECT 
-                strftime('%Y-%m-%d', cast(start as real)/1000, 'unixepoch', 'localtime') as day, 
+                strftime('%Y-%m-%dT00:00:00', cast(start as real)/1000, 'unixepoch', 'localtime') as day, 
                 cast(SUM(end - start) as real)/3600000 as hours,
                 project.name as project,
                 client.name as client
@@ -278,15 +280,13 @@ export class TimingDb {
             ORDER BY start DESC
         `;
 
-        console.log(query.sql, query.params);
-
         const rows = await this.db.select<[string, number, string, string][]>(
             query.sql,
             query.params
         );
 
         return rows.map((row) => ({
-            day: row[0],
+            day: new Date(row[0]),
             hours: row[1],
             project: row[2],
             client: row[3],

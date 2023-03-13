@@ -89,18 +89,18 @@ Deno.test("Insert timings", async () => {
     const db = new TimingDb(":memory:", factory);
     await db.createSchema();
 
-    let timings = [
+    const timings = [
         {
             client: "Acme Inc",
             project: "Secret Acme Car",
-            start: new Date("2020-01-01"),
-            end: new Date("2020-01-02"),
+            start: new Date("2020-01-01 00:00"),
+            end: new Date("2020-01-02 00:00"),
         },
         {
             client: "Mega corp",
             project: "VR Glasses",
-            start: new Date("2022-01-01"),
-            end: new Date("2022-01-02"),
+            start: new Date("2022-01-01 00:00"),
+            end: new Date("2022-01-02 00:00"),
         },
     ];
 
@@ -113,27 +113,38 @@ Deno.test("Daily totals", async () => {
     const db = new TimingDb(":memory:", factory);
     await db.createSchema();
 
-    let timings = [
+    await db.insertTimings([
         {
             client: "Acme Inc",
             project: "Secret Acme Car",
-            start: new Date("2020-01-01"),
-            end: new Date("2020-01-02"),
+            start: new Date("2020-01-01 17:00"),
+            end: new Date("2020-01-01 18:00"),
+        },
+        {
+            client: "Acme Inc",
+            project: "Secret Acme Car",
+            start: new Date("2020-01-01 12:00"),
+            end: new Date("2020-01-01 13:00"),
         },
         {
             client: "Mega corp",
             project: "VR Glasses",
-            start: new Date("2022-01-01"),
-            end: new Date("2022-01-04"),
+            start: new Date("2022-01-01 11:00"),
+            end: new Date("2022-01-01 12:00"),
         },
-    ];
-
-    await db.insertTimings(timings);
-    const storedTimings = await db.dailyTotals({
-        from: new Date("2020-01-01"),
-        to: new Date("2025-01-02"),
+    ]);
+    const storedTimings = await db.getDailyTotals({
+        from: new Date("2020-01-01 00:00"),
+        to: new Date("2025-01-02 00:00"),
     });
 
-    console.log(storedTimings);
-    // TODO: !!!!!!!!
+    assertEquals(storedTimings, [
+        { day: new Date("2022-01-01 00:00"), hours: 1, project: "VR Glasses", client: "Mega corp" },
+        {
+            day: new Date("2020-01-01 00:00"),
+            hours: 2,
+            project: "Secret Acme Car",
+            client: "Acme Inc",
+        },
+    ]);
 });
