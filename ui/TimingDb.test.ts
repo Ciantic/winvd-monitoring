@@ -34,9 +34,7 @@ class DenoDatabase implements IDatabase {
         bindValues?: unknown[]
     ): Promise<T[]> {
         await this.init();
-
         return Promise.resolve(this.db.queryEntries<T>(query, bindValues as QueryParameter[]));
-        // return Promise.resolve(this.db.query(query, bindValues as QueryParameter[]) as T);
     }
     async close(): Promise<boolean> {
         await this.init();
