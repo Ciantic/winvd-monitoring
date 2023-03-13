@@ -88,30 +88,40 @@ export class TimingDb {
     db: IDatabase;
 
     constructor(dbName: string, factory = (): IDatabase => new Database(dbName)) {
+        // Factory is used in testing to replace the Database with a mock
         this.db = factory();
+        this.db.onInit(this.onInit.bind(this));
     }
 
     async destroy() {
         await this.db.close();
     }
 
-    async createSchema() {
+    private async onInit(): Promise<void> {
+        await this.__createSchema();
+    }
+
+    public async init(): Promise<void> {
+        await this.db.init();
+    }
+
+    async __createSchema() {
         await this.db.execute(CLIENT_SCHEMA.sql);
         await this.db.execute(PROJECT_SCHEMA.sql);
         await this.db.execute(SUMMARY_SCHEMA.sql);
         await this.db.execute(TIMING_SCHEMA.sql);
     }
 
-    public async __getClients(): Promise<[number, string][]> {
+    async __getClients(): Promise<[number, string][]> {
         const query = sql`SELECT id, name FROM client`;
         return await this.db.select<[number, string][]>(query.sql, query.params);
     }
-    public async __getProjects(): Promise<[number, string][]> {
+    async __getProjects(): Promise<[number, string][]> {
         const query = sql`SELECT id, name FROM project`;
         return await this.db.select<[number, string][]>(query.sql, query.params);
     }
 
-    public async __insertClients(clients_: string[]) {
+    async __insertClients(clients_: string[]) {
         const clients = [...new Set(clients_)];
         const clientsById: { [k: string]: number } = {};
 
@@ -142,7 +152,7 @@ export class TimingDb {
         return clientsById;
     }
 
-    public async __insertProjects(projects: { name: string; clientId: number }[]) {
+    async __insertProjects(projects: { name: string; clientId: number }[]) {
         type ID = number;
 
         const projectIdsByClientId: { [clientId: ID]: { [projectName: string]: ID } } = {};
@@ -208,7 +218,9 @@ export class TimingDb {
         return clientAndProjectIds;
     }
 
-    async insertTimings(timings: { start: Date; end: Date; project: string; client: string }[]) {
+    public async insertTimings(
+        timings: { start: Date; end: Date; project: string; client: string }[]
+    ) {
         const clientAndProjectsIds = await this.__insertClientsAndProjects(timings);
 
         // Insert clients
@@ -223,7 +235,7 @@ export class TimingDb {
         }
     }
 
-    async getTimings(input?: { from?: Date; to?: Date }): Promise<Timing[]> {
+    public async getTimings(input?: { from?: Date; to?: Date }): Promise<Timing[]> {
         const query = sql`
             SELECT
                 timing.start as start,

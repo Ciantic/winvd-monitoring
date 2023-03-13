@@ -6,22 +6,35 @@ import { DB, QueryParameter } from "https://deno.land/x/sqlite/mod.ts";
 class DenoDatabase implements IDatabase {
     private path: string;
     private db: DB;
+    private onInitCb?: () => Promise<void>;
+    private inited = false;
 
     constructor(path: string) {
         this.path = path;
         this.db = new DB(path);
     }
-    execute(query: string, bindValues?: unknown[]): Promise<QueryResult> {
+    onInit(cb: () => Promise<void>) {
+        this.onInitCb = cb;
+    }
+    async init() {
+        if (this.inited) return;
+        this.inited = true;
+        await this.onInitCb?.();
+    }
+    async execute(query: string, bindValues?: unknown[]): Promise<QueryResult> {
+        await this.init();
         this.db.query(query, bindValues as QueryParameter[]);
         return Promise.resolve({
             lastInsertId: this.db.lastInsertRowId,
             rowsAffected: this.db.totalChanges,
         });
     }
-    select<T>(query: string, bindValues?: unknown[]): Promise<T> {
+    async select<T>(query: string, bindValues?: unknown[]): Promise<T> {
+        await this.init();
         return Promise.resolve(this.db.query(query, bindValues as QueryParameter[]) as T);
     }
-    close(): Promise<boolean> {
+    async close(): Promise<boolean> {
+        await this.init();
         this.db.close();
         return Promise.resolve(true);
     }
@@ -33,12 +46,11 @@ function factory() {
 
 Deno.test("Create schema", async () => {
     const db = new TimingDb(":memory:", factory);
-    await db.createSchema();
+    await db.init();
 });
 
 Deno.test("Insert clients", async () => {
     const db = new TimingDb(":memory:", factory);
-    await db.createSchema();
     const ids = await db.__insertClients(["First", "Second"]);
 
     assertEquals(ids, {
@@ -56,7 +68,6 @@ Deno.test("Insert clients", async () => {
 
 Deno.test("Insert clients and projects", async () => {
     const db = new TimingDb(":memory:", factory);
-    await db.createSchema();
     const ids = await db.__insertClientsAndProjects([
         {
             client: "Acme Inc",
@@ -87,7 +98,6 @@ Deno.test("Insert clients and projects", async () => {
 
 Deno.test("Insert timings", async () => {
     const db = new TimingDb(":memory:", factory);
-    await db.createSchema();
 
     const timings = [
         {
@@ -111,7 +121,6 @@ Deno.test("Insert timings", async () => {
 
 Deno.test("Daily totals", async () => {
     const db = new TimingDb(":memory:", factory);
-    await db.createSchema();
 
     await db.insertTimings([
         {

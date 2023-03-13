@@ -12,27 +12,38 @@ export interface QueryResult {
 }
 
 export interface IDatabase {
+    onInit(cb: () => Promise<void>): void;
+    init(): Promise<void>;
     execute(query: string, bindValues?: unknown[]): Promise<QueryResult>;
     select<T>(query: string, bindValues?: unknown[]): Promise<T>;
     close(db?: string): Promise<boolean>;
 }
 
 export default class Database implements IDatabase {
-    private unloadedPath: string;
-    private loadedPath = "";
-    constructor(path: string) {
-        this.unloadedPath = path;
+    private initedPath = "";
+    private onInitCb?: () => Promise<void>;
+
+    constructor(private path: string) {}
+
+    onInit(cb: () => Promise<void>): void {
+        this.onInitCb = cb;
     }
 
     private async load(): Promise<string> {
-        if (this.loadedPath) {
-            return Promise.resolve(this.loadedPath);
+        await this.init();
+        return this.initedPath;
+    }
+
+    async init(): Promise<void> {
+        if (this.initedPath) {
+            return Promise.resolve();
         }
 
-        this.loadedPath = await invoke<string>("plugin:sql|load", {
-            db: this.unloadedPath,
+        this.initedPath = await invoke<string>("plugin:sql|load", {
+            db: this.path,
         });
-        return this.loadedPath;
+
+        await this.onInitCb?.();
     }
 
     async execute(query: string, bindValues?: unknown[]): Promise<QueryResult> {
