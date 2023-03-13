@@ -21,7 +21,7 @@ Deno.test("Timings stored", () => {
 });
 
 Deno.test("Timings keepalive", () => {
-    const app = new TimingRecorder(true, new Date(1000000));
+    const app = new TimingRecorder(true, () => Promise.resolve(), new Date(1000000));
     const timings: Timing[] = [];
     app.onInsertTiming.addListener((timing) => {
         timings.push(timing);

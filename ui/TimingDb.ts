@@ -1,5 +1,5 @@
 import { sql } from "./utils/sqlLiteral.ts";
-import Database, { IDatabase } from "./utils/sqlPlugin.ts";
+import Database, { IDatabase } from "./utils/Database.ts";
 
 export interface Timing {
     client: string;
@@ -84,12 +84,16 @@ interface ClientAndProject {
 }
 type ClientAndProjectIds = { [client: string]: { [project: string]: number } };
 
+function createDatabase(dbName: string): IDatabase {
+    return new Database(dbName);
+}
+
 export class TimingDb {
     db: IDatabase;
 
-    constructor(dbName: string, factory = (): IDatabase => new Database(dbName)) {
+    constructor(dbName: string, factory = createDatabase) {
         // Factory is used in testing to replace the Database with a mock
-        this.db = factory();
+        this.db = factory(dbName);
         this.db.onInit(this.onInit.bind(this));
     }
 

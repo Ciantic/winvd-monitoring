@@ -25,7 +25,7 @@ export class TimingRecorder {
 
     constructor(
         enableKeepAlive: boolean,
-        private save: (
+        private save?: (
             timings: { start: Date; end: Date; project: string; client: string }[]
         ) => Promise<void>,
         now = new Date()
@@ -117,6 +117,6 @@ export class TimingRecorder {
         // Send event to listeners
         this.onInsertTiming.trigger(timing);
 
-        this.save([timing]);
+        this.save?.([timing]);
     }
 }
