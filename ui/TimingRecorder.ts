@@ -111,6 +111,12 @@ export class TimingRecorder {
             return;
         }
 
+        // If timing is less than three seconds, ignore it
+        if (timing.end.getTime() - timing.start.getTime() < 3 * 1000) {
+            console.warn("Timing is less than 3 seconds, ignoring", timing);
+            return;
+        }
+
         // Insert timing
         this.timings.push(timing);
 
