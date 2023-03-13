@@ -149,33 +149,36 @@ import { assertEquals } from "https://deno.land/std/testing/asserts.ts";
 if (typeof Deno !== "undefined" && Deno) {
     Deno.test("getDailyTotals", () => {
         const timing = {
-            start: new Date(2021, 0, 1, 12),
-            end: new Date(2021, 0, 2, 12),
+            start: new Date("2021-01-01 12:00"),
+            end: new Date("2021-01-02 12:00"),
         };
         const result = getDailyTotals(timing);
         assertEquals(result.size, 2);
-        assertEquals(result.get(new Date(2021, 0, 1).getTime()), 12);
-        assertEquals(result.get(new Date(2021, 0, 2).getTime()), 12);
+        assertEquals(result.get(new Date("2021-01-01 00:00").getTime()), 12);
+        assertEquals(result.get(new Date("2021-01-02 00:00").getTime()), 12);
     });
+
     Deno.test("getDailyTotals 2", () => {
         const timing = {
-            start: new Date(2021, 0, 1, 12),
-            end: new Date(2021, 0, 1, 14),
+            start: new Date("2021-01-01 12:00"),
+            end: new Date("2021-01-01 14:00"),
         };
         const result = getDailyTotals(timing);
         assertEquals(result.size, 1);
-        assertEquals(result.get(new Date(2021, 0, 1).getTime()), 2);
+        assertEquals(result.get(new Date("2021-01-01 00:00").getTime()), 2);
     });
+
     Deno.test("getWeeklyTotals", () => {
         const timing = {
-            start: new Date(2023, 2, 7, 12), // Tuesday
-            end: new Date(2023, 2, 7 + 10, 12),
+            start: new Date("2023-03-07 12:00"), // Tuesday
+            end: new Date("2023-03-17 12:00"),
         };
         const result = getWeeklyTotals(timing);
         assertEquals(result.size, 2);
-        assertEquals(result.get(startOfWeek(new Date(2023, 2, 7, 12)).getTime()), 156);
-        assertEquals(result.get(addDays(startOfWeek(new Date(2023, 2, 7, 12)), 7).getTime()), 84);
-
-        startOfDay;
+        assertEquals(result.get(startOfWeek(new Date("2023-03-07 12:00")).getTime()), 156);
+        assertEquals(
+            result.get(addDays(startOfWeek(new Date("2023-03-07 12:00")), 7).getTime()),
+            84
+        );
     });
 }
