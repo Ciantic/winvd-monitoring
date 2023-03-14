@@ -279,7 +279,7 @@ export class TimingDb {
 
         const query = sql`
             SELECT 
-                strftime('%Y-%m-%dT00:00:00', cast(start as real)/1000, 'unixepoch', 'localtime') as day, 
+                strftime('%Y-%m-%d', cast(start as real)/1000, 'unixepoch', 'localtime') as day, 
                 cast(SUM(end - start) as real)/3600000 as hours,
                 project.name as project,
                 client.name as client
@@ -310,7 +310,7 @@ export class TimingDb {
         }>(query.sql, query.params);
 
         return rows.map((row) => ({
-            day: new Date(row.day),
+            day: new Date(row.day + "T00:00:00"),
             hours: row.hours,
             project: row.project,
             client: row.client,
