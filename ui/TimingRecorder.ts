@@ -88,15 +88,18 @@ export class TimingRecorder {
             console.warn("Keep alive didn't happen in time", this.lastKeepAlive, now);
 
             // Segment the timing on last known good value
-            this.insertTiming({
+            const segmentedTiming = {
                 client: this.client,
                 project: this.project,
                 start: this.started,
                 end: new Date(this.lastKeepAlive),
-            });
+            };
 
             // Start a new timing
             this.started = new Date(now);
+
+            // Insert the segmented timing
+            this.insertTiming(segmentedTiming);
         }
 
         this.lastKeepAlive = new Date(now);
