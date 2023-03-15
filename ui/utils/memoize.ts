@@ -27,6 +27,8 @@ function deepFreeze<T>(obj: T): Readonly<T> {
     return Object.freeze(obj);
 }
 
+type Key = string | number | symbol;
+
 export const REF = Symbol("ref");
 export const CACHE_TRUE = Symbol("true");
 export const CACHE_FALSE = Symbol("false");
@@ -55,7 +57,7 @@ function key(a: any): symbol | string | number {
     }
 }
 
-function makeKey(...args: any): string | number | symbol {
+function makeKey(...args: any): Key {
     if (args.length === 0) {
         return 0;
     } else if (args.length === 1) {
@@ -66,7 +68,7 @@ function makeKey(...args: any): string | number | symbol {
 }
 
 export function memoize<R, T extends (this: void, ...args: any[]) => R>(fn: T) {
-    const cache: { [k: string | number | symbol]: any } = {};
+    const cache: { [k: Key]: any } = {};
     const memoized = function () {
         const key = makeKey(...arguments);
         if (cache[key]) {
@@ -95,6 +97,6 @@ export function memoize<R, T extends (this: void, ...args: any[]) => R>(fn: T) {
     memoized.cache = cache;
     return memoized as {
         (...args: Parameters<typeof fn>): Readonly<ReturnType<typeof fn>>;
-        cache: { [k: string | number | symbol]: ReturnType<typeof fn> };
+        cache: Readonly<Record<Key, ReturnType<typeof fn>>>;
     };
 }
