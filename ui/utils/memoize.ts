@@ -3,11 +3,6 @@
  * the same value for the same arguments. It also allows Promise results, and
  * classes as inputs.
  *
- * In case the input has a class it's treated as a reference.
- *
- * In case the output is a Promise it returns the same promise, and cache is
- * cleared if the promise is rejected.
- *
  * @author Jari O. O. Pennanen
  * @date 2023-03-15
  * @license MIT
@@ -73,6 +68,18 @@ export function __makeKey(...args: any): Key {
     }
 }
 
+/**
+ * Memoize the function.
+ *
+ * In case any of the inputs has a class it's treated as a reference, primitives
+ * should work as is.
+ *
+ * In case the output is a Promise it returns the same promise, and cache is
+ * cleared if the promise is rejected.
+ *
+ * @param fn Function to memoize
+ * @returns Memoized function
+ */
 export function memoize<R, T extends (this: void, ...args: any[]) => R>(fn: T) {
     const cache: { [k: Key]: any } = {};
     const memoized = function () {
