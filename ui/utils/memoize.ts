@@ -12,6 +12,7 @@
  * @date 2023-03-15
  * @license MIT
  */
+// deno-lint-ignore-file no-explicit-any
 
 function isPlainObj(value: any) {
     return !!value && Object.getPrototypeOf(value) === Object.prototype;
@@ -30,11 +31,11 @@ function deepFreeze<T>(obj: T): Readonly<T> {
 type Key = string | number;
 
 const CacheSymbol = (v: string | number) => "__" + v;
-export const REF = Symbol("ref");
-export const CACHE_TRUE = CacheSymbol("true");
-export const CACHE_FALSE = CacheSymbol("false");
-export const CACHE_NULL = CacheSymbol("null");
-export const CACHE_UNDEFINED = CacheSymbol("undefined");
+export const __REF = Symbol("ref");
+export const __CACHE_TRUE = CacheSymbol("true");
+export const __CACHE_FALSE = CacheSymbol("false");
+export const __CACHE_NULL = CacheSymbol("null");
+export const __CACHE_UNDEFINED = CacheSymbol("undefined");
 let REF_ID = 0;
 function key(a: any): Key {
     // Note: We can't return real symbols because `makeKey` will stringify these
@@ -43,26 +44,26 @@ function key(a: any): Key {
     if (typeof a === "string" || typeof a === "number") {
         return a;
     } else if (a === null) {
-        return CACHE_NULL;
+        return __CACHE_NULL;
     } else if (typeof a === "undefined") {
-        return CACHE_UNDEFINED;
+        return __CACHE_UNDEFINED;
     } else if (typeof a === "boolean") {
-        return a ? CACHE_TRUE : CACHE_FALSE;
+        return a ? __CACHE_TRUE : __CACHE_FALSE;
     } else if (isPlainObj(a) || Array.isArray(a)) {
         return CacheSymbol(JSON.stringify(a));
     } else {
         // If it's not a primitive then it's a class 🤞
 
         // By reference for classes, storing the reference in a symbol within the class
-        if (a[REF]) {
-            return a[REF];
+        if (a[__REF]) {
+            return a[__REF];
         }
-        a[REF] = CacheSymbol("ref" + ++REF_ID);
-        return a[REF];
+        a[__REF] = CacheSymbol("ref" + ++REF_ID);
+        return a[__REF];
     }
 }
 
-function makeKey(...args: any): Key {
+export function __makeKey(...args: any): Key {
     if (args.length === 0) {
         return 0;
     } else if (args.length === 1) {
@@ -75,7 +76,7 @@ function makeKey(...args: any): Key {
 export function memoize<R, T extends (this: void, ...args: any[]) => R>(fn: T) {
     const cache: { [k: Key]: any } = {};
     const memoized = function () {
-        const key = makeKey(...arguments);
+        const key = __makeKey(...arguments);
         if (cache[key]) {
             return cache[key];
         }
@@ -85,7 +86,7 @@ export function memoize<R, T extends (this: void, ...args: any[]) => R>(fn: T) {
         if (typeof result === "object" && result !== null) {
             if ("catch" in result) {
                 // If it's a promise
-                (result as any).catch((e: any) => {
+                (result as any).catch((_: any) => {
                     // If it's rejected, remove cache
                     delete cache[key];
                 });

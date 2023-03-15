@@ -1,5 +1,30 @@
+// deno-lint-ignore-file no-explicit-any
+
 import { assertEquals, assert } from "https://deno.land/std/testing/asserts.ts";
-import { CACHE_TRUE, memoize, REF } from "./memoize.ts";
+import { __CACHE_TRUE, memoize, __REF, __makeKey } from "./memoize.ts";
+
+Deno.test("memoize makeKey", () => {
+    assertEquals(__makeKey(), 0);
+    assertEquals(__makeKey(1), 1);
+    assertEquals(__makeKey("foo"), "foo");
+    assertEquals(__makeKey(undefined), "__undefined");
+    assertEquals(__makeKey(null), "__null");
+    assertEquals(__makeKey(true), "__true");
+    assertEquals(__makeKey(false), "__false");
+    assertEquals(__makeKey(1, 2, 3), "[1,2,3]");
+    assertEquals(__makeKey("foo", 2, 3), '["foo",2,3]');
+    assertEquals(__makeKey({ bar: 5 }), '__{"bar":5}');
+    assertEquals(__makeKey({ baz: 5 }, { bar: 12 }), '["__{\\"baz\\":5}","__{\\"bar\\":12}"]');
+    class Foo {
+        constructor(public bar: number) {}
+    }
+    const foo1 = new Foo(1);
+    const foo2 = new Foo(2);
+    assertEquals(__makeKey(foo1), "__ref1");
+    assertEquals(__makeKey(foo1), "__ref1");
+    assertEquals(__makeKey(foo2), "__ref2");
+    assertEquals(__makeKey(foo2), "__ref2");
+});
 
 Deno.test("memoize", () => {
     const memoized = memoize(function (a: number, b: number) {
@@ -60,8 +85,8 @@ Deno.test("memoize reference for classes", () => {
     assertEquals(value2, 125);
     assertEquals(value3, 124);
     assertEquals(memoized.cache, {
-        [(foo1 as any)[REF]]: 124,
-        [(foo2 as any)[REF]]: 125,
+        [(foo1 as any)[__REF]]: 124,
+        [(foo2 as any)[__REF]]: 125,
     });
 });
 Deno.test("memoize reference for classes", () => {
@@ -82,8 +107,8 @@ Deno.test("memoize reference for classes", () => {
     assertEquals(value1, 124);
     assertEquals(value2, 125);
     assertEquals(value3, 124);
-    const key1 = JSON.stringify([(foo1 as any)[REF], 2]);
-    const key2 = JSON.stringify([(foo2 as any)[REF], 2]);
+    const key1 = JSON.stringify([(foo1 as any)[__REF], 2]);
+    const key2 = JSON.stringify([(foo2 as any)[__REF], 2]);
     assertEquals(memoized.cache, {
         [key1]: 124,
         [key2]: 125,
@@ -132,5 +157,5 @@ Deno.test("memoize promise", async () => {
     const promise = memoized(true);
     const value = await promise;
     assertEquals(value, "success");
-    assert(memoized.cache[CACHE_TRUE] === promise, "cache");
+    assert(memoized.cache[__CACHE_TRUE] === promise, "cache");
 });
