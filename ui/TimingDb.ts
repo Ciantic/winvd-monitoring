@@ -151,29 +151,25 @@ export async function getDailyTotals(
     // This implementation of daily totals can't split multiday timespan to multiple days
 
     const query = sql`
-            SELECT 
-                strftime('%Y-%m-%d', cast(start as real)/1000, 'unixepoch', 'localtime') as day, 
-                cast(SUM(end - start) as real)/3600000 as hours,
-                project.name as project,
-                client.name as client
-            FROM timing, project, client
-            WHERE 
-                timing.projectId = project.id 
-                AND project.clientId = client.id
-                AND timing.start BETWEEN ${input.from.getTime()} AND ${input.to.getTime()}
-                ${
-                    typeof input.client !== "undefined"
-                        ? sql`AND client.name = ${input.client}`
-                        : sql``
-                }
-                ${
-                    typeof input.project !== "undefined"
-                        ? sql`AND project.name = ${input.project}`
-                        : sql``
-                }
-            GROUP BY projectId, day
-            ORDER BY start DESC
-        `;
+        SELECT 
+            strftime('%Y-%m-%d', cast(start as real)/1000, 'unixepoch', 'localtime') as day, 
+            cast(SUM(end - start) as real)/3600000 as hours,
+            project.name as project,
+            client.name as client
+        FROM timing, project, client
+        WHERE 
+            timing.projectId = project.id 
+            AND project.clientId = client.id
+            AND timing.start BETWEEN ${input.from.getTime()} AND ${input.to.getTime()}
+            ${typeof input.client !== "undefined" ? sql`AND client.name = ${input.client}` : sql``}
+            ${
+                typeof input.project !== "undefined"
+                    ? sql`AND project.name = ${input.project}`
+                    : sql``
+            }
+        GROUP BY projectId, day
+        ORDER BY start DESC
+    `;
 
     const rows = await db.select<{
         day: string;
