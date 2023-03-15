@@ -27,14 +27,19 @@ function deepFreeze<T>(obj: T): Readonly<T> {
     return Object.freeze(obj);
 }
 
-type Key = string | number | symbol;
+type Key = string | number;
 
+const CacheSymbol = (v: string | number) => "__" + v;
 export const REF = Symbol("ref");
-export const CACHE_TRUE = Symbol("true");
-export const CACHE_FALSE = Symbol("false");
-export const CACHE_NULL = Symbol("null");
-export const CACHE_UNDEFINED = Symbol("undefined");
-function key(a: any): symbol | string | number {
+export const CACHE_TRUE = CacheSymbol("true");
+export const CACHE_FALSE = CacheSymbol("false");
+export const CACHE_NULL = CacheSymbol("null");
+export const CACHE_UNDEFINED = CacheSymbol("undefined");
+let REF_ID = 0;
+function key(a: any): Key {
+    // Note: We can't return real symbols because `makeKey` will stringify these
+    // values, and Symbol stringified is always "null" string.
+
     if (typeof a === "string" || typeof a === "number") {
         return a;
     } else if (a === null) {
@@ -44,7 +49,7 @@ function key(a: any): symbol | string | number {
     } else if (typeof a === "boolean") {
         return a ? CACHE_TRUE : CACHE_FALSE;
     } else if (isPlainObj(a) || Array.isArray(a)) {
-        return JSON.stringify(a);
+        return CacheSymbol(JSON.stringify(a));
     } else {
         // If it's not a primitive then it's a class 🤞
 
@@ -52,7 +57,7 @@ function key(a: any): symbol | string | number {
         if (a[REF]) {
             return a[REF];
         }
-        a[REF] = Symbol();
+        a[REF] = CacheSymbol("ref" + ++REF_ID);
         return a[REF];
     }
 }

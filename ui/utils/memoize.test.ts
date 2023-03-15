@@ -64,6 +64,31 @@ Deno.test("memoize reference for classes", () => {
         [(foo2 as any)[REF]]: 125,
     });
 });
+Deno.test("memoize reference for classes", () => {
+    class Foo {
+        constructor(public bar: number) {}
+    }
+
+    const memoized = memoize(function (foo: Foo, n: number) {
+        return 123 + foo.bar;
+    });
+
+    const foo1 = new Foo(1);
+    const value1 = memoized(foo1, 2);
+    const foo2 = new Foo(2);
+    const value2 = memoized(foo2, 2);
+    const value3 = memoized(foo1, 2);
+
+    assertEquals(value1, 124);
+    assertEquals(value2, 125);
+    assertEquals(value3, 124);
+    const key1 = JSON.stringify([(foo1 as any)[REF], 2]);
+    const key2 = JSON.stringify([(foo2 as any)[REF], 2]);
+    assertEquals(memoized.cache, {
+        [key1]: 124,
+        [key2]: 125,
+    });
+});
 
 Deno.test("memoize promise", async () => {
     let n = 0;
