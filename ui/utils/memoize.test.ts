@@ -1,5 +1,5 @@
 import { assertEquals, assert } from "https://deno.land/std/testing/asserts.ts";
-import { memoize } from "./memoize.ts";
+import { CACHE_TRUE, memoize, REF } from "./memoize.ts";
 
 Deno.test("memoize", () => {
     const memoized = memoize(function (a: number, b: number) {
@@ -52,13 +52,17 @@ Deno.test("memoize reference for classes", () => {
 
     const foo1 = new Foo(1);
     const value1 = memoized(foo1);
-    const value2 = memoized(new Foo(2));
+    const foo2 = new Foo(2);
+    const value2 = memoized(foo2);
     const value3 = memoized(foo1);
 
     assertEquals(value1, 124);
     assertEquals(value2, 125);
     assertEquals(value3, 124);
-    assertEquals(memoized.cache, { 1: 124, 2: 125 });
+    assertEquals(memoized.cache, {
+        [(foo1 as any)[REF]]: 124,
+        [(foo2 as any)[REF]]: 125,
+    });
 });
 
 Deno.test("memoize promise", async () => {
@@ -103,5 +107,5 @@ Deno.test("memoize promise", async () => {
     const promise = memoized(true);
     const value = await promise;
     assertEquals(value, "success");
-    assert(memoized.cache[1] === promise, "cache");
+    assert(memoized.cache[CACHE_TRUE] === promise, "cache");
 });

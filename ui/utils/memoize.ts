@@ -27,28 +27,35 @@ function deepFreeze<T>(obj: T): Readonly<T> {
     return Object.freeze(obj);
 }
 
-const REF_SYMBOL = Symbol("ref");
-let REF_ID = 0;
-function key(a: any) {
+export const REF = Symbol("ref");
+export const CACHE_TRUE = Symbol("true");
+export const CACHE_FALSE = Symbol("false");
+export const CACHE_NULL = Symbol("null");
+export const CACHE_UNDEFINED = Symbol("undefined");
+function key(a: any): symbol | string | number {
     if (typeof a === "string" || typeof a === "number") {
         return a;
+    } else if (a === null) {
+        return CACHE_NULL;
+    } else if (typeof a === "undefined") {
+        return CACHE_UNDEFINED;
     } else if (typeof a === "boolean") {
-        return a ? 1 : 0;
+        return a ? CACHE_TRUE : CACHE_FALSE;
     } else if (isPlainObj(a) || Array.isArray(a)) {
         return JSON.stringify(a);
     } else {
-        // If it's not a primitive then it's a class
+        // If it's not a primitive then it's a class 🤞
 
         // By reference for classes, storing the reference in a symbol within the class
-        if (a[REF_SYMBOL]) {
-            return a[REF_SYMBOL];
+        if (a[REF]) {
+            return a[REF];
         }
-        a[REF_SYMBOL] = ++REF_ID;
-        return a[REF_SYMBOL];
+        a[REF] = Symbol();
+        return a[REF];
     }
 }
 
-function makeKey(...args: any): string | number {
+function makeKey(...args: any): string | number | symbol {
     if (args.length === 0) {
         return 0;
     } else if (args.length === 1) {
@@ -59,7 +66,7 @@ function makeKey(...args: any): string | number {
 }
 
 export function memoize<R, T extends (this: void, ...args: any[]) => R>(fn: T) {
-    const cache: { [k: string]: any } = {};
+    const cache: { [k: string | number | symbol]: any } = {};
     const memoized = function () {
         const key = makeKey(...arguments);
         if (cache[key]) {
@@ -88,6 +95,6 @@ export function memoize<R, T extends (this: void, ...args: any[]) => R>(fn: T) {
     memoized.cache = cache;
     return memoized as {
         (...args: Parameters<typeof fn>): Readonly<ReturnType<typeof fn>>;
-        cache: { [k: string | number]: ReturnType<typeof fn> };
+        cache: { [k: string | number | symbol]: ReturnType<typeof fn> };
     };
 }
