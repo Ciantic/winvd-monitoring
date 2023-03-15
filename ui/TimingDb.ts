@@ -1,5 +1,6 @@
 import { sql } from "./utils/sqlLiteral.ts";
 import { IDatabase, transaction } from "./utils/Database.ts";
+import { memoize } from "./utils/memoize.ts";
 
 export interface Timing {
     client: string;
@@ -187,7 +188,7 @@ export async function getDailyTotals(
 }
 
 // Helper function to get or create the client id from the client name
-async function getOrCreateClientId(db: IDatabase, clientName: string): Promise<number> {
+const getOrCreateClientId = memoize(async (db: IDatabase, clientName: string): Promise<number> => {
     // Check if the client exists in the database
     const client = await db.select<{ id: number }>("SELECT id FROM client WHERE name = ?", [
         clientName,
@@ -199,27 +200,25 @@ async function getOrCreateClientId(db: IDatabase, clientName: string): Promise<n
     // If not, insert a new row and return the last insert id
     const result = await db.execute("INSERT INTO client (name) VALUES (?)", [clientName]);
     return result.lastInsertId;
-}
+});
 
 // Helper function to get or create the project id from the project and client names
-async function getOrCreateProjectId(
-    db: IDatabase,
-    projectName: string,
-    clientId: number
-): Promise<number> {
-    // Check if the project exists in the database
-    const project = await db.select<{ id: number }>(
-        "SELECT id FROM project WHERE name = ? AND clientId = ?",
-        [projectName, clientId]
-    );
-    // If yes, return the existing id
-    if (project.length > 0) {
-        return project[0].id;
+const getOrCreateProjectId = memoize(
+    async (db: IDatabase, projectName: string, clientId: number): Promise<number> => {
+        // Check if the project exists in the database
+        const project = await db.select<{ id: number }>(
+            "SELECT id FROM project WHERE name = ? AND clientId = ?",
+            [projectName, clientId]
+        );
+        // If yes, return the existing id
+        if (project.length > 0) {
+            return project[0].id;
+        }
+        // If not, insert a new row and return the last insert id
+        const result = await db.execute("INSERT INTO project (name, clientId) VALUES (?, ?)", [
+            projectName,
+            clientId,
+        ]);
+        return result.lastInsertId;
     }
-    // If not, insert a new row and return the last insert id
-    const result = await db.execute("INSERT INTO project (name, clientId) VALUES (?, ?)", [
-        projectName,
-        clientId,
-    ]);
-    return result.lastInsertId;
-}
+);
