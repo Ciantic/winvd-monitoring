@@ -1,5 +1,4 @@
 import { startOfDay, subDays } from "https://cdn.skypack.dev/date-fns";
-import { TimingDb } from "./TimingDb.ts";
 import { asDefaultMap, DefaultMap } from "./utils/asDefaultMap.ts";
 import { getDailyTotals, splitTotals, splitTotalsFrom } from "./utils/splitTotals.ts";
 

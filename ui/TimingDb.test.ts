@@ -1,66 +1,19 @@
 import { assertEquals } from "https://deno.land/std/testing/asserts.ts";
-import { TimingDb } from "./TimingDb.ts";
+import { createSchema, getDailyTotals, getTimings, insertTimings } from "./TimingDb.ts";
 import { DatabaseDeno } from "./utils/DatabaseDeno.ts";
 
-function factory() {
-    return new DatabaseDeno(":memory:");
+async function testDb() {
+    const db = new DatabaseDeno(":memory:");
+    await createSchema(db);
+    return db;
 }
 
 Deno.test("Create schema", async () => {
-    const db = new TimingDb(":memory:", factory);
-    await db.init();
-});
-
-Deno.test("Insert clients", async () => {
-    const db = new TimingDb(":memory:", factory);
-    const ids = await db.__insertClients(["First", "Second"]);
-
-    assertEquals(ids, {
-        First: 1,
-        Second: 2,
-    });
-
-    // Ensure that second call returns IDs as well
-    const ids2 = await db.__insertClients(["First", "Second"]);
-    assertEquals(ids2, {
-        First: 1,
-        Second: 2,
-    });
-});
-
-Deno.test("Insert clients and projects", async () => {
-    const db = new TimingDb(":memory:", factory);
-    const ids = await db.__insertClientsAndProjects([
-        {
-            client: "Acme Inc",
-            project: "Secret Acme Car",
-        },
-        {
-            client: "Acme Inc",
-            project: "VR Product",
-        },
-        {
-            client: "Acme Inc",
-            project: "VR Product",
-        },
-        {
-            client: "Acme Inc",
-            project: "VR Product",
-        },
-        {
-            client: "Megacorp Inc",
-            project: "Thingamabob",
-        },
-    ]);
-    assertEquals(ids, {
-        "Acme Inc": { "Secret Acme Car": 1, "VR Product": 2 },
-        "Megacorp Inc": { Thingamabob: 5 },
-    });
+    await testDb();
 });
 
 Deno.test("Insert timings", async () => {
-    const db = new TimingDb(":memory:", factory);
-
+    const db = await testDb();
     const timings = [
         {
             client: "Acme Inc",
@@ -75,16 +28,57 @@ Deno.test("Insert timings", async () => {
             end: new Date("2022-01-02 00:00"),
         },
     ];
-
-    await db.insertTimings(timings);
-    const storedTimings = await db.getTimings();
+    await insertTimings(db, timings);
+    const storedTimings = await getTimings(db);
     assertEquals(timings, storedTimings);
 });
 
-Deno.test("Daily totals", async () => {
-    const db = new TimingDb(":memory:", factory);
+Deno.test("Insert timings, errors", async () => {
+    const db = await testDb();
+    const timings = [
+        {
+            client: null as any,
+            project: "Secret Acme Car",
+            start: new Date("2020-01-01 00:00"),
+            end: new Date("2020-01-02 00:00"),
+        },
+        {
+            client: "Mega corp",
+            project: "VR Glasses",
+            start: new Date("2022-01-01 00:00"),
+            end: new Date("2022-01-02 00:00"),
+        },
+    ];
 
-    await db.insertTimings([
+    let error;
+    try {
+        await insertTimings(db, timings);
+    } catch (e) {
+        error = e;
+    }
+    const storedTimings = await getTimings(db);
+    assertEquals([], storedTimings);
+    assertEquals(error.message, "NOT NULL constraint failed: client.name");
+
+    // Ensure no transaction was not left unfinished and try insert again, it should work
+
+    const timings2 = [
+        {
+            client: "Acme Inc",
+            project: "Secret Acme Car",
+            start: new Date("2020-01-01 00:00"),
+            end: new Date("2020-01-02 00:00"),
+        },
+    ];
+    await insertTimings(db, timings2);
+    const storedTimings2 = await getTimings(db);
+    assertEquals(timings2, storedTimings2);
+});
+
+Deno.test("Daily totals", async () => {
+    const db = await testDb();
+
+    await insertTimings(db, [
         {
             client: "Acme Inc",
             project: "Secret Acme Car",
@@ -104,7 +98,7 @@ Deno.test("Daily totals", async () => {
             end: new Date("2022-01-01 12:00"),
         },
     ]);
-    const storedTimings = await db.getDailyTotals({
+    const storedTimings = await getDailyTotals(db, {
         from: new Date("2020-01-01 00:00"),
         to: new Date("2025-01-02 00:00"),
     });

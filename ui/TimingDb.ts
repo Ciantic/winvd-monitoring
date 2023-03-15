@@ -1,5 +1,5 @@
 import { sql } from "./utils/sqlLiteral.ts";
-import Database, { IDatabase } from "./utils/Database.ts";
+import { IDatabase, transaction } from "./utils/Database.ts";
 
 export interface Timing {
     client: string;
@@ -78,206 +78,79 @@ const TIMING_SCHEMA = sql`
     );
 `;
 
-interface ClientAndProject {
-    client: string;
-    project: string;
-}
-type ClientAndProjectIds = { [client: string]: { [project: string]: number } };
-
-function createDatabase(dbName: string): IDatabase {
-    return new Database(dbName);
+export async function createSchema(db: IDatabase) {
+    await db.execute(CLIENT_SCHEMA.sql);
+    await db.execute(PROJECT_SCHEMA.sql);
+    await db.execute(SUMMARY_SCHEMA.sql);
+    await db.execute(TIMING_SCHEMA.sql);
 }
 
-export class TimingDb {
-    db: IDatabase;
+export async function getTimings(
+    db: IDatabase,
+    input?: { from?: Date; to?: Date }
+): Promise<Timing[]> {
+    const query = sql`
+        SELECT
+            timing.start as start,
+            timing.end as end,
+            project.name as project,
+            client.name as client
+        FROM timing, project, client
+        WHERE timing.projectId = project.id AND project.clientId = client.id
+        ${input?.from ? sql`AND timing.start >= ${input.from.getTime()}` : sql``}
+        ${input?.to ? sql`AND timing.end <= ${input.to.getTime()}` : sql``}
+    `;
+    const rows = await db.select<{
+        start: number;
+        end: number;
+        project: string;
+        client: string;
+    }>(query.sql, query.params);
+    return rows.map((row) => ({
+        start: new Date(row.start),
+        end: new Date(row.end),
+        project: row.project,
+        client: row.client,
+    }));
+}
 
-    constructor(dbName: string, factory = createDatabase) {
-        // Factory is used in testing to replace the Database with a mock
-        this.db = factory(dbName);
-        this.db.onInit(this.onInit.bind(this));
-    }
-
-    async destroy() {
-        await this.db.close();
-    }
-
-    private async onInit(): Promise<void> {
-        await this.__createSchema();
-    }
-
-    public async init(): Promise<void> {
-        await this.db.init();
-    }
-
-    async __createSchema() {
-        await this.db.execute(CLIENT_SCHEMA.sql);
-        await this.db.execute(PROJECT_SCHEMA.sql);
-        await this.db.execute(SUMMARY_SCHEMA.sql);
-        await this.db.execute(TIMING_SCHEMA.sql);
-    }
-
-    async __getClients(): Promise<{ id: number; name: string }[]> {
-        const query = sql`SELECT id, name FROM client`;
-        return await this.db.select(query.sql, query.params);
-    }
-    async __getProjects(): Promise<{ id: number; name: string }[]> {
-        const query = sql`SELECT id, name FROM project`;
-        return await this.db.select(query.sql, query.params);
-    }
-
-    async __insertClients(clients_: string[]) {
-        const clients = [...new Set(clients_)];
-        const clientsById: { [k: string]: number } = {};
-
-        // Get existing clients with ids
-        const query = sql`
-            SELECT id, name FROM client WHERE name IN ${clients}
-        `;
-        const res = await this.db.select<{ id: number; name: string }>(query.sql, query.params);
-        for (const { id, name } of res) {
-            clientsById[name] = id;
-        }
-
-        // Get non existing clients
-        const nonExistingClients = clients.filter((c) => !clientsById[c]);
-
-        // Insert clients
-        for (const clientName of nonExistingClients) {
-            // Upsert but always return id, even if it already existed
-            const query = sql`
-                INSERT INTO client as c (name) VALUES (${clientName}) 
-                RETURNING id
-            `;
-            const res = await this.db.select<{ id: number }>(query.sql, query.params);
-            if (res.length > 0) {
-                clientsById[clientName] = res[0].id;
-            }
-        }
-        return clientsById;
-    }
-
-    async __insertProjects(projects: { name: string; clientId: number }[]) {
-        type ID = number;
-
-        const projectIdsByClientId: { [clientId: ID]: { [projectName: string]: ID } } = {};
-
-        // Get existing projects with ids
-        const query = sql`
-            SELECT id, clientId, name FROM project WHERE (name, clientId) IN (${sql.values(
-                ...projects.map((p) => [p.name, p.clientId])
-            )})
-        `;
-
-        const values = await this.db.select<{
-            id: number;
-            clientId: number;
-            name: string;
-        }>(query.sql, query.params);
-        for (const { id, clientId, name } of values) {
-            projectIdsByClientId[clientId] = projectIdsByClientId[clientId] || {};
-            projectIdsByClientId[clientId][name] = id;
-        }
-
-        // Get non-existing projects
-        const nonExistingProjects = projects.filter((p) => {
-            const existingProjects = projectIdsByClientId[+p.clientId];
-            return !existingProjects || !existingProjects[p.name];
-        });
-
-        // Insert projects
-        for (const { name, clientId } of nonExistingProjects) {
-            const query = sql`
-                INSERT INTO project (name, clientId) VALUES (${name}, ${clientId})
-                ON CONFLICT DO NOTHING
-                RETURNING id
-            `;
-
-            const res = await this.db.select<{ id: number }>(query.sql, query.params);
-            if (res.length > 0) {
-                projectIdsByClientId[clientId] = projectIdsByClientId[clientId] || {};
-                projectIdsByClientId[clientId][name] = res[0].id;
-            }
-        }
-        return projectIdsByClientId;
-    }
-
-    public async __insertClientsAndProjects(
-        projectsAndClients: ClientAndProject[]
-    ): Promise<ClientAndProjectIds> {
-        const clientAndProjectIds: ClientAndProjectIds = {};
-
-        // Get unique client names
-        const clientNames = projectsAndClients.map((p) => p.client);
-        const clientsById = await this.__insertClients(clientNames);
-        const projectIds = await this.__insertProjects(
-            projectsAndClients.map((p) => ({
-                name: p.project,
-                clientId: clientsById[p.client],
-            }))
-        );
-
-        for (const value of projectsAndClients) {
-            const clientId = clientsById[value.client];
-            const projectId = projectIds[clientId][value.project];
-            clientAndProjectIds[value.client] = clientAndProjectIds[value.client] || {};
-            clientAndProjectIds[value.client][value.project] = projectId;
-        }
-
-        return clientAndProjectIds;
-    }
-
-    public async insertTimings(
-        timings: { start: Date; end: Date; project: string; client: string }[]
-    ) {
-        const clientAndProjectsIds = await this.__insertClientsAndProjects(timings);
-
-        // Insert clients
+export async function insertTimings(
+    db: IDatabase,
+    timings: { start: Date; end: Date; project: string; client: string }[]
+): Promise<void> {
+    await transaction(db, async () => {
         for (const timing of timings) {
-            const projectId = clientAndProjectsIds[timing.client][timing.project];
-            const query = sql`
-                INSERT INTO timing (start, end, projectId) 
-                VALUES ${[timing.start.getTime(), timing.end.getTime(), projectId]}
-                ON CONFLICT DO UPDATE SET [end] = ${timing.end.getTime()}
-            `;
-            await this.db.execute(query.sql, query.params);
+            // Get or create the client id from the client name
+            const clientId = await getOrCreateClientId(db, timing.client);
+            // Get or create the project id from the project and client names
+            const projectId = await getOrCreateProjectId(db, timing.project, clientId);
+            // Convert the start and end dates to milliseconds
+            const start = timing.start.getTime();
+            const end = timing.end.getTime();
+            // Insert the timing into the database
+            await db.execute(
+                `
+                INSERT INTO timing (start, end, projectId) VALUES (?, ?, ?)
+                ON CONFLICT DO UPDATE SET [end] = ?
+                `,
+                [start, end, projectId, end]
+            );
         }
-    }
+    });
+}
 
-    public async getTimings(input?: { from?: Date; to?: Date }): Promise<Timing[]> {
-        const query = sql`
-            SELECT
-                timing.start as start,
-                timing.end as end,
-                project.name as project,
-                client.name as client
-            FROM timing, project, client
-            WHERE timing.projectId = project.id AND project.clientId = client.id
-            ${input?.from ? sql`AND timing.start >= ${input.from.getTime()}` : sql``}
-            ${input?.to ? sql`AND timing.end <= ${input.to.getTime()}` : sql``}
-        `;
-        const rows = await this.db.select<{
-            start: number;
-            end: number;
-            project: string;
-            client: string;
-        }>(query.sql, query.params);
-        return rows.map((row) => ({
-            start: new Date(row.start),
-            end: new Date(row.end),
-            project: row.project,
-            client: row.client,
-        }));
-    }
-
-    public async getDailyTotals(input: {
+export async function getDailyTotals(
+    db: IDatabase,
+    input: {
         from: Date;
         to: Date;
         client?: string;
         project?: string;
-    }): Promise<{ day: Date; hours: number; client: string; project: string }[]> {
-        // This implementation of daily totals can't split multiday timespan to multiple days
+    }
+): Promise<{ day: Date; hours: number; client: string; project: string }[]> {
+    // This implementation of daily totals can't split multiday timespan to multiple days
 
-        const query = sql`
+    const query = sql`
             SELECT 
                 strftime('%Y-%m-%d', cast(start as real)/1000, 'unixepoch', 'localtime') as day, 
                 cast(SUM(end - start) as real)/3600000 as hours,
@@ -302,18 +175,55 @@ export class TimingDb {
             ORDER BY start DESC
         `;
 
-        const rows = await this.db.select<{
-            day: string;
-            hours: number;
-            project: string;
-            client: string;
-        }>(query.sql, query.params);
+    const rows = await db.select<{
+        day: string;
+        hours: number;
+        project: string;
+        client: string;
+    }>(query.sql, query.params);
 
-        return rows.map((row) => ({
-            day: new Date(row.day + "T00:00:00"),
-            hours: row.hours,
-            project: row.project,
-            client: row.client,
-        }));
+    return rows.map((row) => ({
+        day: new Date(row.day + "T00:00:00"),
+        hours: row.hours,
+        project: row.project,
+        client: row.client,
+    }));
+}
+
+// Helper function to get or create the client id from the client name
+async function getOrCreateClientId(db: IDatabase, clientName: string): Promise<number> {
+    // Check if the client exists in the database
+    const client = await db.select<{ id: number }>("SELECT id FROM client WHERE name = ?", [
+        clientName,
+    ]);
+    // If yes, return the existing id
+    if (client.length > 0) {
+        return client[0].id;
     }
+    // If not, insert a new row and return the last insert id
+    const result = await db.execute("INSERT INTO client (name) VALUES (?)", [clientName]);
+    return result.lastInsertId;
+}
+
+// Helper function to get or create the project id from the project and client names
+async function getOrCreateProjectId(
+    db: IDatabase,
+    projectName: string,
+    clientId: number
+): Promise<number> {
+    // Check if the project exists in the database
+    const project = await db.select<{ id: number }>(
+        "SELECT id FROM project WHERE name = ? AND clientId = ?",
+        [projectName, clientId]
+    );
+    // If yes, return the existing id
+    if (project.length > 0) {
+        return project[0].id;
+    }
+    // If not, insert a new row and return the last insert id
+    const result = await db.execute("INSERT INTO project (name, clientId) VALUES (?, ?)", [
+        projectName,
+        clientId,
+    ]);
+    return result.lastInsertId;
 }

@@ -1,9 +1,10 @@
 import { makeObservable, observable, computed, action, reaction } from "https://esm.sh/mobx";
 import { TauriProtocol } from "./IpcProtocol.ts";
-import { TimingDb } from "./TimingDb.ts";
+import { createSchema, getDailyTotals, insertTimings } from "./TimingDb.ts";
 import { TimingRecorder } from "./TimingRecorder.ts";
 import { emptyTotals, TotalsCache } from "./TotalsCache.ts";
 import { cancellablePromise, CancellablePromise } from "./utils/cancellablePromise.ts";
+import { Database } from "./utils/Database.ts";
 
 declare function requestAnimationFrame(callback: () => void): void;
 
@@ -28,9 +29,9 @@ export class MonitoringApp {
     private tickTimeout = 0;
     private updateTotalsTimeout = 0;
     private sendDesktopNameBounceTimeout = 0;
-    private timingDb = new TimingDb("sqlite:projects.db");
-    private recorder = new TimingRecorder(true, this.timingDb.insertTimings.bind(this.timingDb));
-    private totalsCache = new TotalsCache(this.timingDb.getDailyTotals.bind(this.timingDb));
+    private timingDb = new Database("sqlite:projects.db", createSchema);
+    private recorder = new TimingRecorder(true, insertTimings.bind(null, this.timingDb));
+    private totalsCache = new TotalsCache(getDailyTotals.bind(null, this.timingDb));
     private lastUpdateFromDb?: CancellablePromise<void>;
 
     private cleanReactionClientOrProjectChanges: () => void;

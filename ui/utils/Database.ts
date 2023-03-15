@@ -11,30 +11,36 @@ export interface QueryResult {
     lastInsertId: number;
 }
 
-export interface IDatabase {
-    onInit(cb: () => Promise<void>): void;
-    init(): Promise<void>;
-    execute(query: string, bindValues?: unknown[]): Promise<QueryResult>;
-    select<T extends Record<string, unknown>>(query: string, bindValues?: unknown[]): Promise<T[]>;
-    close(db?: string): Promise<boolean>;
+export async function transaction<T>(db: IDatabase, fn: () => Promise<T>): Promise<T> {
+    await db.execute("BEGIN TRANSACTION");
+    let result: T;
+    try {
+        result = await fn();
+    } catch (e) {
+        await db.execute("ROLLBACK TRANSACTION");
+        throw e;
+    }
+    await db.execute("COMMIT TRANSACTION");
+    return result;
 }
 
-export default class Database implements IDatabase {
+export interface IDatabase {
+    execute(query: string, bindValues?: unknown[]): Promise<QueryResult>;
+    select<T extends Record<string, unknown>>(query: string, bindValues?: unknown[]): Promise<T[]>;
+    close(): Promise<boolean>;
+}
+
+export class Database implements IDatabase {
     private initedPath = "";
-    private onInitCb?: () => Promise<void>;
 
-    constructor(private path: string) {}
-
-    onInit(cb: () => Promise<void>): void {
-        this.onInitCb = cb;
-    }
+    constructor(private path: string, private onInit?: (db: IDatabase) => Promise<void>) {}
 
     private async load(): Promise<string> {
         await this.init();
         return this.initedPath;
     }
 
-    async init(): Promise<void> {
+    private async init(): Promise<void> {
         if (this.initedPath) {
             return Promise.resolve();
         }
@@ -43,7 +49,7 @@ export default class Database implements IDatabase {
             db: this.path,
         });
 
-        await this.onInitCb?.();
+        await this.onInit?.(this);
     }
 
     async execute(query: string, bindValues?: unknown[]): Promise<QueryResult> {
@@ -59,7 +65,10 @@ export default class Database implements IDatabase {
         };
     }
 
-    async select<T>(query: string, bindValues?: unknown[]): Promise<T[]> {
+    async select<T extends Record<string, unknown>>(
+        query: string,
+        bindValues?: unknown[]
+    ): Promise<T[]> {
         const result = await invoke<T[]>("plugin:sql|select", {
             db: await this.load(),
             query,

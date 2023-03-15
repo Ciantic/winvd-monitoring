@@ -4,20 +4,17 @@ import { DB, QueryParameter } from "https://deno.land/x/sqlite/mod.ts";
 export class DatabaseDeno implements IDatabase {
     private path: string;
     private db: DB;
-    private onInitCb?: () => Promise<void>;
     private inited = false;
 
-    constructor(path: string) {
+    constructor(path: string, private onInit?: (db: IDatabase) => Promise<void>) {
         this.path = path;
         this.db = new DB(path);
     }
-    onInit(cb: () => Promise<void>) {
-        this.onInitCb = cb;
-    }
+
     async init() {
         if (this.inited) return;
         this.inited = true;
-        await this.onInitCb?.();
+        await this.onInit?.(this);
     }
     async execute(query: string, bindValues?: unknown[]): Promise<QueryResult> {
         await this.init();

@@ -1,4 +1,3 @@
-import { TimingDb } from "./TimingDb.ts";
 import { simpleMapEvent } from "./utils/simpleMapEvent.ts";
 
 interface ClientAndProject {
