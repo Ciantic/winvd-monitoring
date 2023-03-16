@@ -120,6 +120,8 @@ export async function insertTimings(
     timings: { start: Date; end: Date; project: string; client: string }[]
 ): Promise<void> {
     await transaction(db, async () => {
+        // TODO: Here is a bug, if transaction fails, the memoized functions
+        // getOrCreateClientId and getOrCreateProjectId will be in invalid state
         for (const timing of timings) {
             // Get or create the client id from the client name
             const clientId = await getOrCreateClientId(db, timing.client);
