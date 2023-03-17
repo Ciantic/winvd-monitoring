@@ -1,29 +1,29 @@
 // deno-lint-ignore-file no-explicit-any
 
 import { assertEquals, assert } from "https://deno.land/std/testing/asserts.ts";
-import { memoize, __CACHE_TRUE, __REF, __makeKey } from "./memoize.ts";
+import { memoize, makeKey, Symbols } from "./memoize.ts";
 
 Deno.test("memoize makeKey", () => {
-    assertEquals(__makeKey(), 0);
-    assertEquals(__makeKey(1), 1);
-    assertEquals(__makeKey("foo"), "foo");
-    assertEquals(__makeKey(undefined), "__undefined");
-    assertEquals(__makeKey(null), "__null");
-    assertEquals(__makeKey(true), "__true");
-    assertEquals(__makeKey(false), "__false");
-    assertEquals(__makeKey(1, 2, 3), "[1,2,3]");
-    assertEquals(__makeKey("foo", 2, 3), '["foo",2,3]');
-    assertEquals(__makeKey({ bar: 5 }), '__{"bar":5}');
-    assertEquals(__makeKey({ baz: 5 }, { bar: 12 }), '["__{\\"baz\\":5}","__{\\"bar\\":12}"]');
+    assertEquals(makeKey(), 0);
+    assertEquals(makeKey(1), 1);
+    assertEquals(makeKey("foo"), "foo");
+    assertEquals(makeKey(undefined), "__undefined");
+    assertEquals(makeKey(null), "__null");
+    assertEquals(makeKey(true), "__true");
+    assertEquals(makeKey(false), "__false");
+    assertEquals(makeKey(1, 2, 3), "[1,2,3]");
+    assertEquals(makeKey("foo", 2, 3), '["foo",2,3]');
+    assertEquals(makeKey({ bar: 5 }), '__{"bar":5}');
+    assertEquals(makeKey({ baz: 5 }, { bar: 12 }), '["__{\\"baz\\":5}","__{\\"bar\\":12}"]');
     class Foo {
         constructor(public bar: number) {}
     }
     const foo1 = new Foo(1);
     const foo2 = new Foo(2);
-    assertEquals(__makeKey(foo1), "__ref1");
-    assertEquals(__makeKey(foo1), "__ref1");
-    assertEquals(__makeKey(foo2), "__ref2");
-    assertEquals(__makeKey(foo2), "__ref2");
+    assertEquals(makeKey(foo1), "__ref1");
+    assertEquals(makeKey(foo1), "__ref1");
+    assertEquals(makeKey(foo2), "__ref2");
+    assertEquals(makeKey(foo2), "__ref2");
 });
 
 Deno.test("memoize", () => {
@@ -33,7 +33,7 @@ Deno.test("memoize", () => {
 
     assertEquals(memoized(1, 2), 3);
     assertEquals(memoized(1, 2), 3);
-    assertEquals(memoized.cache, { "[1,2]": 3 });
+    assertEquals([...memoized.cache.entries()], [["[1,2]", 3]]);
 });
 
 Deno.test("memoize unary", () => {
@@ -43,29 +43,9 @@ Deno.test("memoize unary", () => {
 
     assertEquals(memoized(1), 11);
     assertEquals(memoized(1), 11);
-    assertEquals(memoized.cache, { 1: 11 });
+    assertEquals([...memoized.cache.entries()], [[1, 11]]);
 });
 
-Deno.test("memoize frozen object", () => {
-    const memoized = memoize(function (baz: number) {
-        return {
-            foo: "bar",
-            bar: baz,
-        };
-    });
-
-    const isFrozen = memoized(55);
-    assert(Object.isFrozen(isFrozen), "isFrozen");
-
-    assertEquals(memoized(55), {
-        foo: "bar",
-        bar: 55,
-    });
-    assertEquals(memoized(55), {
-        foo: "bar",
-        bar: 55,
-    });
-});
 Deno.test("memoize reference for classes", () => {
     class Foo {
         constructor(public bar: number) {}
@@ -84,10 +64,13 @@ Deno.test("memoize reference for classes", () => {
     assertEquals(value1, 124);
     assertEquals(value2, 125);
     assertEquals(value3, 124);
-    assertEquals(memoized.cache, {
-        [(foo1 as any)[__REF]]: 124,
-        [(foo2 as any)[__REF]]: 125,
-    });
+    assertEquals(
+        [...memoized.cache.entries()],
+        [
+            [(foo1 as any)[Symbols.REF], 124],
+            [(foo2 as any)[Symbols.REF], 125],
+        ]
+    );
 });
 Deno.test("memoize reference for classes", () => {
     class Foo {
@@ -107,15 +90,18 @@ Deno.test("memoize reference for classes", () => {
     assertEquals(value1, 124);
     assertEquals(value2, 125);
     assertEquals(value3, 124);
-    const key1 = JSON.stringify([(foo1 as any)[__REF], 2]);
-    const key2 = JSON.stringify([(foo2 as any)[__REF], 2]);
-    assertEquals(memoized.cache, {
-        [key1]: 124,
-        [key2]: 125,
-    });
+    const key1 = JSON.stringify([(foo1 as any)[Symbols.REF], 2]);
+    const key2 = JSON.stringify([(foo2 as any)[Symbols.REF], 2]);
+    assertEquals(
+        [...memoized.cache.entries()],
+        [
+            [key1, 124],
+            [key2, 125],
+        ]
+    );
 });
 
-Deno.test("memoize promise", async () => {
+Deno.test("memoize promise no duplicates", async () => {
     let n = 0;
     const memoized = memoize(function () {
         return Promise.resolve(++n);
@@ -127,7 +113,7 @@ Deno.test("memoize promise", async () => {
     assertEquals(await value1, 1);
     assertEquals(await value2, 1);
     assertEquals(await value3, 1);
-    assertEquals(memoized.cache, { 0: value1 });
+    assertEquals([...memoized.cache.entries()], [[0, value1]]);
 });
 
 Deno.test("memoize catch", async () => {
@@ -142,7 +128,7 @@ Deno.test("memoize catch", async () => {
         error = e;
     }
     assertEquals(error, "error");
-    assertEquals(memoized.cache, {});
+    assertEquals([...memoized.cache.entries()], []);
 });
 
 Deno.test("memoize promise", async () => {
@@ -157,7 +143,7 @@ Deno.test("memoize promise", async () => {
     const promise = memoized(true);
     const value = await promise;
     assertEquals(value, "success");
-    assert(memoized.cache[__CACHE_TRUE] === promise, "cache");
+    assert(memoized.cache.get(Symbols.CACHE_TRUE) === promise, "cache");
 });
 
 const memoized = memoize(function (a: number) {

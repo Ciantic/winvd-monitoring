@@ -13,119 +13,96 @@ function isPlainObj(value: any) {
     return !!value && Object.getPrototypeOf(value) === Object.prototype;
 }
 
-// TODO: Do I even need this?
-function deepFreeze<T>(obj: T): Readonly<T> {
-    const propNames = Object.getOwnPropertyNames(obj);
-    for (const name of propNames) {
-        const value = (obj as any)[name];
-        (obj as any)[name] = value && typeof value === "object" ? deepFreeze(value) : value;
-    }
-    return Object.freeze(obj);
-}
-
 type Key = string | number;
 
 const CacheSymbol = (v: string | number) => "__" + v;
-export const __REF = Symbol("ref");
-export const __CACHE_TRUE = CacheSymbol("true");
-export const __CACHE_FALSE = CacheSymbol("false");
-export const __CACHE_NULL = CacheSymbol("null");
-export const __CACHE_UNDEFINED = CacheSymbol("undefined");
-let REF_ID = 0;
-function key(a: any): Key {
-    // Note: We can't return real symbols because `makeKey` will stringify these
-    // values, and Symbol stringified is always "null" string.
+export const Symbols = {
+    REF: Symbol("ref"),
 
+    // Note: We can't use real symbols because `makeKey` will stringify these
+    // values, and `Symbol()` stringified is always "null" string.
+    CACHE_TRUE: CacheSymbol("true"),
+    CACHE_FALSE: CacheSymbol("false"),
+    CACHE_NULL: CacheSymbol("null"),
+    CACHE_UNDEFINED: CacheSymbol("undefined"),
+};
+
+let REF_ID = 0;
+function makeSingleKey(a: any): Key {
     if (typeof a === "string" || typeof a === "number") {
         return a;
     } else if (a === null) {
-        return __CACHE_NULL;
+        return Symbols.CACHE_NULL;
     } else if (typeof a === "undefined") {
-        return __CACHE_UNDEFINED;
+        return Symbols.CACHE_UNDEFINED;
     } else if (typeof a === "boolean") {
-        return a ? __CACHE_TRUE : __CACHE_FALSE;
+        return a ? Symbols.CACHE_TRUE : Symbols.CACHE_FALSE;
     } else if (isPlainObj(a) || Array.isArray(a)) {
         return CacheSymbol(JSON.stringify(a));
     } else {
         // If it's not a primitive then it's a class 🤞
 
         // By reference for classes, storing the reference in a symbol within the class
-        if (a[__REF]) {
-            return a[__REF];
+        if (a[Symbols.REF]) {
+            return a[Symbols.REF];
         }
-        a[__REF] = CacheSymbol("ref" + ++REF_ID);
-        return a[__REF];
+        a[Symbols.REF] = CacheSymbol("ref" + ++REF_ID);
+        return a[Symbols.REF];
     }
 }
 
-export function __makeKey(...args: any): Key {
+export function makeKey(...args: any): Key {
     if (args.length === 0) {
         return 0;
     } else if (args.length === 1) {
-        return key(args[0]);
+        return makeSingleKey(args[0]);
     } else {
-        return JSON.stringify(args.map(key));
+        return JSON.stringify(args.map(makeSingleKey));
     }
 }
 
-export interface ICache {
+export interface IMemoizationCache {
     get(key: Key): any;
     set(key: Key, value: any): void;
     delete(key: Key): void;
+    entries(): IterableIterator<[Key, any]>;
 }
 
-export class Cache implements ICache {
-    get(key: Key) {
-        return this.cache[key];
+export function cacheGetOrExec<F extends (this: void, ...args: any[]) => any>(
+    mutCache: IMemoizationCache,
+    fn: F,
+    args: Parameters<F>
+): ReturnType<F> {
+    // Try to get from a cache
+    const key = makeKey(...args);
+    const value = mutCache.get(key);
+    if (value !== undefined) {
+        return value;
     }
-    set(key: Key, value: any): void {
-        this.cache[key] = value;
+
+    // If not in cache, call the function
+    const result = fn.call(undefined, ...args);
+
+    // If it's promise, clear cache if it's rejected
+    if (typeof result === "object" && result !== null && "catch" in result) {
+        (result as any).catch((_: any) => {
+            mutCache.delete(key);
+        });
     }
-    delete(key: Key): void {
-        delete this.cache[key];
-    }
-    cache: Record<Key, any> = {};
+
+    // Assign value to cache
+    mutCache.set(key, result);
+    return result as ReturnType<F>;
 }
 
-/**
- * Create memoized function, with own cache implementation.
- *
- * Usually you want to use `memoize` instead.
- *
- * @param mutCache Own cache implementation
- * @param fn Function to memoize
- * @returns Memoized function
- */
-export function memoizeWithCache<R, T extends (this: void, ...args: any[]) => R>(
-    mutCache: ICache,
-    fn: T
+function memoizeWithCache<F extends (this: void, ...args: any[]) => any>(
+    mutCache: IMemoizationCache,
+    fn: F
 ) {
     return function () {
-        const key = __makeKey(...arguments);
-        const value = mutCache.get(key);
-        if (value !== undefined) {
-            return value;
-        }
-
-        const result = fn.call(undefined, ...arguments);
-
-        if (typeof result === "object" && result !== null) {
-            if ("catch" in result) {
-                // If it's a promise
-                (result as any).catch((_: any) => {
-                    // If it's rejected, remove cache
-                    mutCache.delete(key);
-                });
-                mutCache.set(key, result);
-            } else {
-                mutCache.set(key, deepFreeze(result));
-            }
-        } else {
-            mutCache.set(key, result);
-        }
-        return result;
+        return cacheGetOrExec(mutCache, fn, arguments as any);
     } as {
-        (...args: Parameters<T>): ReturnType<T>;
+        (...args: Parameters<F>): Readonly<ReturnType<F>>;
     };
 }
 
@@ -141,8 +118,20 @@ export function memoizeWithCache<R, T extends (this: void, ...args: any[]) => R>
  * @param fn Function to memoize
  * @returns Memoized function
  */
-export function memoize<R, T extends (this: void, ...args: any[]) => R>(fn: T) {
-    const cache: Cache = new Cache();
+export function memoize<F extends (this: void, ...args: any[]) => any>(fn: F) {
+    const cache: IMemoizationCache = new Map();
     const memoized = memoizeWithCache(cache, fn);
-    return Object.assign(memoized, { cache: cache.cache });
+    return Object.assign(memoized, { cache: cache }) as {
+        (...args: Parameters<F>): Readonly<ReturnType<F>>;
+        cache: IMemoizationCache;
+    };
 }
+
+// Inference test
+
+// const test = memoize((a: string, b: number) => {
+//     return a + b;
+// });
+
+// test("Foo", 5);
+// test(123, 123); // This should give an error because 123 is not a string

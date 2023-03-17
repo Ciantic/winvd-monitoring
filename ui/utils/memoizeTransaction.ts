@@ -9,53 +9,24 @@
  * @license MIT
  */
 
-import { ICache, memoizeWithCache, __makeKey } from "./memoize.ts";
-
-interface Transaction {
-    __beginTransaction(): void;
-    __commitTransaction(): void;
-    __rollbackTransaction(): void;
-}
-
-function transaction<T>(trans: Transaction, fn: () => T): T {
-    trans.__beginTransaction();
-    try {
-        const result = fn();
-        trans.__commitTransaction();
-        return result;
-    } catch (e) {
-        trans.__rollbackTransaction();
-        throw e;
-    }
-}
-
-async function transactionAsync<T>(trans: Transaction, fn: () => Promise<T>): Promise<T> {
-    trans.__beginTransaction();
-
-    try {
-        const res = await fn();
-        trans.__commitTransaction();
-        return res;
-    } catch (e) {
-        trans.__rollbackTransaction();
-        throw e;
-    }
-}
+import { IMemoizationCache, cacheGetOrExec } from "./memoize.ts";
 
 type Key = string | number;
 type TransactionDepth = number;
 type Cache = Map<Key, any>;
-export class TransactionalCache implements Transaction, ICache {
-    transactionDepth = 0;
+
+class TransactionalCacheRemote implements IMemoizationCache {
     transactionMap = new Map<TransactionDepth, Cache>([[0, new Map()]]);
-    __beginTransaction() {
-        this.transactionDepth++;
+
+    public getTransactionDepth?: () => TransactionDepth;
+
+    constructor() {}
+
+    get transactionDepth() {
+        return this.getTransactionDepth?.() ?? 0;
     }
-    __commitTransaction() {
-        if (this.transactionDepth === 0) {
-            throw new Error("No transaction to commit");
-        }
-        this.transactionDepth--;
+
+    commit() {
         const committed = this.transactionMap.get(this.transactionDepth + 1);
         const current = this.transactionMap.get(this.transactionDepth);
         if (committed && current) {
@@ -65,15 +36,9 @@ export class TransactionalCache implements Transaction, ICache {
         }
         this.transactionMap.delete(this.transactionDepth + 1);
     }
-    __rollbackTransaction() {
-        if (this.transactionDepth === 0) {
-            throw new Error("No transaction to rollback");
-        }
-        this.transactionDepth--;
+    rollback() {
         this.transactionMap.delete(this.transactionDepth + 1);
     }
-    transaction = <T>(fn: () => T) => transaction(this, fn);
-    transactionAsync = <T>(fn: () => Promise<T>) => transactionAsync(this, fn);
 
     get(key: Key) {
         // Iterate transaction depth and get first value that exists
@@ -106,66 +71,108 @@ export class TransactionalCache implements Transaction, ICache {
             cache.delete(key);
         }
     }
+    *entries() {
+        // Iterate depths and get all entries
+        for (let i = this.transactionDepth; i >= 0; i--) {
+            const cache = this.transactionMap.get(i);
+            if (cache) {
+                for (const entry of cache.entries()) {
+                    yield entry;
+                }
+            }
+        }
+    }
 }
 
-export class TransactionalMemoize implements Transaction {
-    private cache = new Map<symbol, TransactionalCache>();
+const transactionMapCache = Symbol();
+const transactionDepth = Symbol();
 
-    __beginTransaction() {
-        for (const cache of this.cache.values()) {
-            cache.__beginTransaction();
-        }
-    }
-    __commitTransaction() {
-        for (const cache of this.cache.values()) {
-            cache.__commitTransaction();
-        }
-    }
-    __rollbackTransaction() {
-        for (const cache of this.cache.values()) {
-            cache.__rollbackTransaction();
-        }
-    }
+type IDatabaseLike = {
+    transaction<T>(fn: () => Promise<T>): Promise<T>;
 
-    transaction = <T>(fn: () => T) => transaction(this, fn);
-    transactionAsync = <T>(fn: () => Promise<T>) => transactionAsync(this, fn);
-
-    memoize = <R, T extends (this: void, ...args: any[]) => R>(fn: T) => {
-        const symbol = Symbol();
-        let cache = this.cache.get(symbol);
-        if (!cache) {
-            cache = new TransactionalCache();
-            this.cache.set(symbol, cache);
-        }
-
-        const memoized = memoizeWithCache(cache, fn);
-        return Object.assign(memoized, { cache });
-    };
-}
-
-type MemoizeStore<T> = T & {
-    [k: symbol]: TransactionalCache | undefined;
+    [transactionMapCache]?: Map<symbol, TransactionalCacheRemote>;
+    [transactionDepth]?: number;
 };
 
-export function memoize<C, R, T extends (this: void, arg: MemoizeStore<C>, ...args: any[]) => R>(
-    fn: T
-) {
-    const symCache = Symbol();
-    return function (this: any, arg: MemoizeStore<C>, ...args: any[]) {
-        let cache = arg[symCache];
-        if (!cache) {
-            cache = new TransactionalCache();
-            (arg as any)[symCache] = cache;
-        }
-        const key = __makeKey(...arguments);
-        const value = cache.get(key);
-        if (value !== undefined) {
-            return value;
-        }
-        const result = fn.call(undefined, arg, ...args);
+export async function runMemoizeTransaction<T>(
+    db: IDatabaseLike,
+    fn: () => Promise<T>
+): Promise<T> {
+    // Increment transaction depth
+    db[transactionDepth] = (db[transactionDepth] ?? 0) + 1;
+    let res: T;
+    try {
+        res = await db.transaction(fn);
+    } catch (e) {
+        db[transactionDepth]--;
 
-        return null as R;
-    } as {
-        (...args: Parameters<T>): ReturnType<T>;
+        // Rollback transaction
+        const caches = db[transactionMapCache];
+        if (caches) {
+            for (const cache of caches.values()) {
+                cache.rollback();
+            }
+        }
+        throw e;
+    }
+
+    // Commit transaction
+    db[transactionDepth]--;
+    const caches = db[transactionMapCache];
+    if (caches) {
+        for (const cache of caches.values()) {
+            cache.commit();
+        }
+    }
+    return res;
+}
+
+/**
+ * Memoize a function with transactionality, first argument should be Database
+ * implementing transaction.
+ *
+ * @param fn Function, first argument must implement MemoizeStore, this is not
+ * validated by TypeScript
+ * @returns memoized function
+ */
+export function memoizeTransaction<F extends (this: void, db: any, ...args: any) => any>(fn: F) {
+    // This does not check that first argument (db) implements IDatabaseLike, I
+    // couldn't figure out how to make it reliably, this is the reason `db: any`.
+
+    const symCache = Symbol();
+    const newCache = new TransactionalCacheRemote();
+    const fun = function (this: any, db: IDatabaseLike) {
+        // Create map cache if not exist
+        let mapCache = db[transactionMapCache];
+        if (!mapCache) {
+            mapCache = new Map();
+            db[transactionMapCache] = mapCache;
+        }
+
+        // Create cache for this function if not exist
+        let cache = mapCache.get(symCache);
+        if (!cache) {
+            // cache = new TransactionalCache2(() => arg[transactionDepth] ?? 0);
+            cache = newCache;
+            newCache.getTransactionDepth = () => db[transactionDepth] ?? 0;
+            mapCache.set(symCache, cache);
+        }
+
+        return cacheGetOrExec(cache, fn, arguments as any);
+    };
+    fun.cache = newCache;
+
+    return fun as any as {
+        (...args: Parameters<typeof fn>): ReturnType<typeof fn>;
+        cache: TransactionalCacheRemote;
     };
 }
+
+// Inference test
+
+// const test = memoizeTransaction((db: MemoizeStore, a: number) => {
+//     return a;
+// });
+
+// test(0 as any, 5);
+// test(0 as any, "foo"); // This should give an error because "foo" is not a number

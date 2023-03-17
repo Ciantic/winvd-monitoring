@@ -11,20 +11,8 @@ export interface QueryResult {
     lastInsertId: number;
 }
 
-export async function transaction<T>(db: IDatabase, fn: () => Promise<T>): Promise<T> {
-    await db.execute("BEGIN TRANSACTION");
-    let result: T;
-    try {
-        result = await fn();
-    } catch (e) {
-        await db.execute("ROLLBACK TRANSACTION");
-        throw e;
-    }
-    await db.execute("COMMIT TRANSACTION");
-    return result;
-}
-
 export interface IDatabase {
+    transaction<T>(fn: () => Promise<T>): Promise<T>;
     execute(query: string, bindValues?: unknown[]): Promise<QueryResult>;
     select<T extends Record<string, unknown>>(query: string, bindValues?: unknown[]): Promise<T[]>;
     close(): Promise<boolean>;
@@ -34,6 +22,19 @@ export class Database implements IDatabase {
     private initedPath = "";
 
     constructor(private path: string, private onInit?: (db: IDatabase) => Promise<void>) {}
+
+    async transaction<T>(fn: () => Promise<T>): Promise<T> {
+        await this.execute("BEGIN TRANSACTION");
+        let result: T;
+        try {
+            result = await fn();
+        } catch (e) {
+            await this.execute("ROLLBACK TRANSACTION");
+            throw e;
+        }
+        await this.execute("COMMIT TRANSACTION");
+        return result;
+    }
 
     private async load(): Promise<string> {
         await this.init();
