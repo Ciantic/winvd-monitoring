@@ -1,19 +1,24 @@
 import { assertEquals } from "https://deno.land/std/testing/asserts.ts";
+import { Symbols } from "./memoize.ts";
 import { memoizeDbFunction, transaction } from "./memoizeDbCall.ts";
 
-class TransactionalDb {
+class Db {
     transaction<T>(fn: () => Promise<T>) {
         return fn();
     }
 }
 
-Deno.test("memoizeTransaction normal", async () => {
+function map(...args: any[]) {
+    return new Map(args);
+}
+
+Deno.test("memoizeDbFunction normal", async () => {
     // In this test we don't test transactionality, but the normal behavior without transaction
 
-    const db = new TransactionalDb();
+    const db = new Db();
 
     let numberOfTimesExecuted = 0;
-    const getOrCreateItemToDb = memoizeDbFunction((db: TransactionalDb, value: number) => {
+    const getOrCreateItemToDb = memoizeDbFunction((db: Db, value: number) => {
         return db.transaction(() => {
             numberOfTimesExecuted++;
             return Promise.resolve(value + 10);
@@ -25,6 +30,8 @@ Deno.test("memoizeTransaction normal", async () => {
     const res3 = getOrCreateItemToDb(db, 4);
     const res4 = getOrCreateItemToDb(db, 4);
 
+    const ref = (db as any)[Symbols.REF];
+    console.log(ref);
     assertEquals(numberOfTimesExecuted, 2);
     assertEquals(res1, res2);
     assertEquals(res3, res4);
@@ -32,66 +39,92 @@ Deno.test("memoizeTransaction normal", async () => {
     assertEquals(await res2, 15);
     assertEquals(await res3, 14);
     assertEquals(await res4, 14);
+    const REF = (db as any)[Symbols.REF];
     assertEquals(
-        [...getOrCreateItemToDb.cache.entries()],
-        [
-            ['["__ref1",5]', res1],
-            ['["__ref1",4]', res3],
-        ]
+        getOrCreateItemToDb.cache.contents(),
+        map([0, map([`["${REF}",5]`, res1], [`["${REF}",4]`, res3])])
     );
 });
 
-Deno.test("memoizeTransaction commit", async () => {
-    const db = new TransactionalDb();
+Deno.test("memoizeDbFunction commit", async () => {
+    const db = new Db();
 
     let numberOfTimesExecuted = 0;
-    const getOrCreateItemToDb = memoizeDbFunction((db: TransactionalDb, value: string) => {
+    const getOrCreateItemToDb = memoizeDbFunction((db: Db, value: string) => {
         return db.transaction(() => {
             numberOfTimesExecuted++;
             return Promise.resolve(value);
         });
     });
 
-    await getOrCreateItemToDb(db, "Hello");
-    // await getOrCreateItemToDb(db, 5);
-
-    const res = await transaction(db, async () => {
-        const v1 = await getOrCreateItemToDb(db, " World");
-        return v1;
+    let promise2;
+    const promise1 = getOrCreateItemToDb(db, "Hello");
+    const value1 = await promise1;
+    const transactionResult = await transaction(db, async () => {
+        promise2 = getOrCreateItemToDb(db, " World");
+        const REF = (db as any)[Symbols.REF];
+        assertEquals(
+            getOrCreateItemToDb.cache.contents(),
+            map(
+                [0, map([`["${REF}","Hello"]`, promise1])],
+                [1, map([`["${REF}"," World"]`, promise2])]
+            )
+        );
+        const value2 = await promise2;
+        return value2;
     });
-    // await getOrCreateItemToDb(db, 4);
 
-    // console.log(getOrCreateItemToDb.cache);
+    // Value was committed
+    const REF = (db as any)[Symbols.REF];
+    assertEquals(
+        getOrCreateItemToDb.cache.contents(),
+        map([0, map([`["${REF}","Hello"]`, promise1], [`["${REF}"," World"]`, promise2])])
+    );
 
-    // assertEquals(what, 9);
-    // assertEquals(numberOfTimesExecuted, 2);
+    // Right value was returned
+    assertEquals(value1, "Hello");
+    assertEquals(transactionResult, " World");
 });
 
-Deno.test("memoizeTransaction rollback", async () => {
-    const transactionObject = new TransactionalDb();
-    let numberOfTimesExecuted = 0;
+Deno.test("memoizeDbFunction rollback", async () => {
+    const db = new Db();
 
-    function getOrCreateItemToDb(db: TransactionalDb, value: number) {
+    let numberOfTimesExecuted = 0;
+    const getOrCreateItemToDb = memoizeDbFunction((db: Db, value: string) => {
         return db.transaction(() => {
             numberOfTimesExecuted++;
             return Promise.resolve(value);
         });
-    }
+    });
 
-    const memoized = memoizeDbFunction(getOrCreateItemToDb);
-
+    const promise1 = getOrCreateItemToDb(db, "Hello");
+    const value1 = await promise1;
     let error;
     try {
-        await transaction(transactionObject, async () => {
-            await memoized(transactionObject, 5);
+        const transactionResult = await transaction(db, async () => {
+            const promise2 = getOrCreateItemToDb(db, " World");
+            const REF = (db as any)[Symbols.REF];
+            assertEquals(
+                getOrCreateItemToDb.cache.contents(),
+                map(
+                    [0, map([`["${REF}","Hello"]`, promise1])],
+                    [1, map([`["${REF}"," World"]`, promise2])]
+                )
+            );
+            await promise2;
             throw new Error("Rollback");
         });
     } catch (e) {
         error = e;
     }
 
-    await memoized(transactionObject, 5);
+    // Value was not committed
+    const REF = (db as any)[Symbols.REF];
+    assertEquals(
+        getOrCreateItemToDb.cache.contents(),
+        map([0, map([`["${REF}","Hello"]`, promise1])])
+    );
 
+    // Right error was raised
     assertEquals(error.message, "Rollback");
-    assertEquals(numberOfTimesExecuted, 2);
 });

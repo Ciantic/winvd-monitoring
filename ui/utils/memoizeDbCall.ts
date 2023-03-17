@@ -13,10 +13,10 @@ import { IMemoizationCache, cacheGetOrExec } from "./memoize.ts";
 
 type Key = string | number;
 type TransactionDepth = number;
-type Cache = Map<Key, any>;
+type Cache<R> = Map<Key, R>;
 
-class MemoizationCache implements IMemoizationCache {
-    transactionMap = new Map<TransactionDepth, Cache>([[0, new Map()]]);
+class MemoizationCache<R> implements IMemoizationCache {
+    private transactionMap = new Map<TransactionDepth, Cache<R>>([[0, new Map()]]);
 
     public getTransactionDepth?: () => TransactionDepth;
 
@@ -71,16 +71,8 @@ class MemoizationCache implements IMemoizationCache {
             cache.delete(key);
         }
     }
-    *entries() {
-        // Iterate depths and get all entries
-        for (let i = this.transactionDepth; i >= 0; i--) {
-            const cache = this.transactionMap.get(i);
-            if (cache) {
-                for (const entry of cache.entries()) {
-                    yield entry;
-                }
-            }
-        }
+    contents() {
+        return this.transactionMap;
     }
 }
 
@@ -90,10 +82,17 @@ const transactionDepth = Symbol();
 type IDatabaseLike = {
     transaction<T>(fn: () => Promise<T>): Promise<T>;
 
-    [transactionMapCache]?: Map<symbol, MemoizationCache>;
+    [transactionMapCache]?: Map<symbol, MemoizationCache<any>>;
     [transactionDepth]?: number;
 };
 
+/**
+ * Run database transaction with memoization cache at the same time.
+ *
+ * @param db Database
+ * @param fn Your transaction handler
+ * @returns
+ */
 export async function transaction<T>(db: IDatabaseLike, fn: () => Promise<T>): Promise<T> {
     // Increment transaction depth
     db[transactionDepth] = (db[transactionDepth] ?? 0) + 1;
@@ -125,20 +124,28 @@ export async function transaction<T>(db: IDatabaseLike, fn: () => Promise<T>): P
 }
 
 /**
- * Memoize a function with transactionality, first argument should be Database
- * implementing transaction.
+ * Memoize a database function with transactionality, first argument should be
+ * Database implementing transaction.
  *
- * @param fn Function, first argument must implement MemoizeStore, this is not
- * validated by TypeScript
+ * This is only useful if you use accompanying `transaction` function, otherwise
+ * this does not differ from normal memoization at all.
+ *
+ * @param fn Function, first argument must implement database like transactions,
+ * this is not validated by TypeScript
  * @returns memoized function
  */
-export function memoizeDbFunction<F extends (this: void, db: any, ...args: any) => any>(fn: F) {
+export function memoizeDbFunction<F extends (this: void, db: any, ...args: any) => any>(
+    fn: F
+): {
+    (...args: Parameters<F>): ReturnType<F>;
+    cache: MemoizationCache<ReturnType<F>>;
+} {
     // This does not check that first argument (db) implements IDatabaseLike, I
     // couldn't figure out how to make it reliably, this is the reason `db: any`.
 
     const symCache = Symbol();
-    const newCache = new MemoizationCache();
-    const fun = function (this: any, db: IDatabaseLike) {
+    const cache = new MemoizationCache<ReturnType<F>>();
+    const memoized = function (this: any, db: IDatabaseLike, ..._args: any) {
         // Create map cache if not exist
         let mapCache = db[transactionMapCache];
         if (!mapCache) {
@@ -147,27 +154,23 @@ export function memoizeDbFunction<F extends (this: void, db: any, ...args: any) 
         }
 
         // Create cache for this function if not exist
-        let cache = mapCache.get(symCache);
-        if (!cache) {
+        let foundCache = mapCache.get(symCache);
+        if (!foundCache) {
             // cache = new TransactionalCache2(() => arg[transactionDepth] ?? 0);
-            cache = newCache;
-            newCache.getTransactionDepth = () => db[transactionDepth] ?? 0;
-            mapCache.set(symCache, cache);
+            foundCache = cache;
+            cache.getTransactionDepth = () => db[transactionDepth] ?? 0;
+            mapCache.set(symCache, foundCache);
         }
 
-        return cacheGetOrExec(cache, fn, arguments as any);
+        return cacheGetOrExec(foundCache, fn, arguments as any);
     };
-    fun.cache = newCache;
 
-    return fun as any as {
-        (...args: Parameters<typeof fn>): ReturnType<typeof fn>;
-        cache: MemoizationCache;
-    };
+    return Object.assign(memoized, { cache: cache });
 }
 
 // Inference test
 
-// const test = memoizeTransaction((db: MemoizeStore, a: number) => {
+// const test = memoizeDbFunction((_db: IDatabaseLike, a: number) => {
 //     return a;
 // });
 

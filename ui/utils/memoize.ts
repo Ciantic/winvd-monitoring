@@ -65,9 +65,20 @@ export interface IMemoizationCache {
     get(key: Key): any;
     set(key: Key, value: any): void;
     delete(key: Key): void;
-    entries(): IterableIterator<[Key, any]>;
+    // entries(): IterableIterator<[Key, any]>;
 }
 
+/**
+ * Get or execute a function and cache the result.
+ *
+ * It tries to find the arguments from the cache, and returns cached result,
+ * otherwise it will execute the function and caches the result.
+ *
+ * @param mutCache Mutable cache
+ * @param fn Function
+ * @param args Arguments to function
+ * @returns
+ */
 export function cacheGetOrExec<F extends (this: void, ...args: any[]) => any>(
     mutCache: IMemoizationCache,
     fn: F,
@@ -92,18 +103,7 @@ export function cacheGetOrExec<F extends (this: void, ...args: any[]) => any>(
 
     // Assign value to cache
     mutCache.set(key, result);
-    return result as ReturnType<F>;
-}
-
-function memoizeWithCache<F extends (this: void, ...args: any[]) => any>(
-    mutCache: IMemoizationCache,
-    fn: F
-) {
-    return function () {
-        return cacheGetOrExec(mutCache, fn, arguments as any);
-    } as {
-        (...args: Parameters<F>): Readonly<ReturnType<F>>;
-    };
+    return result;
 }
 
 /**
@@ -118,13 +118,17 @@ function memoizeWithCache<F extends (this: void, ...args: any[]) => any>(
  * @param fn Function to memoize
  * @returns Memoized function
  */
-export function memoize<F extends (this: void, ...args: any[]) => any>(fn: F) {
-    const cache: IMemoizationCache = new Map();
-    const memoized = memoizeWithCache(cache, fn);
-    return Object.assign(memoized, { cache: cache }) as {
-        (...args: Parameters<F>): Readonly<ReturnType<F>>;
-        cache: IMemoizationCache;
+export function memoize<F extends (this: void, ...args: any[]) => any>(
+    fn: F
+): {
+    (...args: Parameters<F>): Readonly<ReturnType<F>>;
+    cache: Map<Key, ReturnType<F>>;
+} {
+    const cache = new Map();
+    const memoized = function () {
+        return cacheGetOrExec(cache, fn, arguments as any);
     };
+    return Object.assign(memoized, { cache: cache });
 }
 
 // Inference test
@@ -134,4 +138,4 @@ export function memoize<F extends (this: void, ...args: any[]) => any>(fn: F) {
 // });
 
 // test("Foo", 5);
-// test(123, 123); // This should give an error because 123 is not a string
+// test(123, 456); // This should give an error because 123 is not a string
