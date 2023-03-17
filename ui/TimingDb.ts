@@ -1,6 +1,6 @@
 import { sql } from "./utils/sqlLiteral.ts";
 import { IDatabase } from "./utils/Database.ts";
-import { transaction, memoizeDbFunction } from "./utils/memoizeTransaction.ts";
+import { transaction, memoizeDbFunction } from "./utils/memoizeDbCall.ts";
 
 export interface Timing {
     client: string;

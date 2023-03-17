@@ -1,5 +1,5 @@
 import { assertEquals } from "https://deno.land/std/testing/asserts.ts";
-import { memoizeDbFunction, transaction } from "./memoizeTransaction.ts";
+import { memoizeDbFunction, transaction } from "./memoizeDbCall.ts";
 
 class TransactionalDb {
     transaction<T>(fn: () => Promise<T>) {
