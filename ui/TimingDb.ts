@@ -1,6 +1,11 @@
 import { sql } from "./utils/sqlLiteral.ts";
-import { IDatabase, transaction } from "./utils/Database.ts";
-import { memoize } from "./utils/memoize.ts";
+import { IDatabase, transaction as dbTransaction } from "./utils/Database.ts";
+import { TransactionalMemoize } from "./utils/memoizeTransaction.ts";
+
+const memoizer = new TransactionalMemoize();
+const memoize = memoizer.memoize;
+const transaction = <T>(db: IDatabase, v: () => Promise<T>) =>
+    memoizer.transactionAsync(() => dbTransaction(db, v));
 
 export interface Timing {
     client: string;
@@ -120,8 +125,6 @@ export async function insertTimings(
     timings: { start: Date; end: Date; project: string; client: string }[]
 ): Promise<void> {
     await transaction(db, async () => {
-        // TODO: Here is a bug, if transaction fails, the memoized functions
-        // getOrCreateClientId and getOrCreateProjectId will be in invalid state
         for (const timing of timings) {
             // Get or create the client id from the client name
             const clientId = await getOrCreateClientId(db, timing.client);
@@ -140,6 +143,9 @@ export async function insertTimings(
             );
         }
     });
+
+    console.log(getOrCreateClientId.cache);
+    console.log(getOrCreateProjectId.cache);
 }
 
 export async function getDailyTotals(

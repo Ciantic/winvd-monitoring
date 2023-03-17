@@ -68,6 +68,67 @@ export function __makeKey(...args: any): Key {
     }
 }
 
+export interface ICache {
+    get(key: Key): any;
+    set(key: Key, value: any): void;
+    delete(key: Key): void;
+}
+
+export class Cache implements ICache {
+    get(key: Key) {
+        return this.cache[key];
+    }
+    set(key: Key, value: any): void {
+        this.cache[key] = value;
+    }
+    delete(key: Key): void {
+        delete this.cache[key];
+    }
+    cache: Record<Key, any> = {};
+}
+
+/**
+ * Create memoized function, with own cache implementation.
+ *
+ * Usually you want to use `memoize` instead.
+ *
+ * @param mutCache Own cache implementation
+ * @param fn Function to memoize
+ * @returns Memoized function
+ */
+export function memoizeWithCache<R, T extends (this: void, ...args: any[]) => R>(
+    mutCache: ICache,
+    fn: T
+) {
+    return function () {
+        const key = __makeKey(...arguments);
+        const value = mutCache.get(key);
+        if (value !== undefined) {
+            return value;
+        }
+
+        const result = fn.call(undefined, ...arguments);
+
+        if (typeof result === "object" && result !== null) {
+            if ("catch" in result) {
+                // If it's a promise
+                (result as any).catch((_: any) => {
+                    // If it's rejected, remove cache
+                    mutCache.delete(key);
+                });
+                mutCache.set(key, result);
+            } else {
+                mutCache.set(key, deepFreeze(result));
+            }
+        } else {
+            mutCache.set(key, result);
+        }
+        return result;
+    } as {
+        (...args: Parameters<T>): ReturnType<T>;
+    };
+}
+
 /**
  * Memoize the function.
  *
@@ -81,35 +142,7 @@ export function __makeKey(...args: any): Key {
  * @returns Memoized function
  */
 export function memoize<R, T extends (this: void, ...args: any[]) => R>(fn: T) {
-    const cache: { [k: Key]: any } = {};
-    const memoized = function () {
-        const key = __makeKey(...arguments);
-        if (cache[key]) {
-            return cache[key];
-        }
-
-        const result = fn.call(undefined, ...arguments);
-
-        if (typeof result === "object" && result !== null) {
-            if ("catch" in result) {
-                // If it's a promise
-                (result as any).catch((_: any) => {
-                    // If it's rejected, remove cache
-                    delete cache[key];
-                });
-                cache[key] = result;
-            } else {
-                cache[key] = deepFreeze(result);
-            }
-        } else {
-            cache[key] = result;
-        }
-        return result;
-    };
-
-    memoized.cache = cache;
-    return memoized as {
-        (...args: Parameters<typeof fn>): Readonly<ReturnType<typeof fn>>;
-        cache: Readonly<Record<Key, ReturnType<typeof fn>>>;
-    };
+    const cache: Cache = new Cache();
+    const memoized = memoizeWithCache(cache, fn);
+    return Object.assign(memoized, { cache: cache.cache });
 }
