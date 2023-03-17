@@ -1,6 +1,6 @@
 import { sql } from "./utils/sqlLiteral.ts";
 import { IDatabase } from "./utils/Database.ts";
-import { runMemoizeTransaction, memoizeTransaction } from "./utils/memoizeTransaction.ts";
+import { transaction, memoizeDbFunction } from "./utils/memoizeTransaction.ts";
 
 export interface Timing {
     client: string;
@@ -119,7 +119,7 @@ export async function insertTimings(
     db: IDatabase,
     timings: { start: Date; end: Date; project: string; client: string }[]
 ): Promise<void> {
-    await runMemoizeTransaction(db, async () => {
+    await transaction(db, async () => {
         for (const timing of timings) {
             // Get or create the client id from the client name
             const clientId = await getOrCreateClientId(db, timing.client);
@@ -191,7 +191,7 @@ export async function getDailyTotals(
 }
 
 // Helper function to get or create the client id from the client name
-const getOrCreateClientId = memoizeTransaction(
+const getOrCreateClientId = memoizeDbFunction(
     async (db: IDatabase, clientName: string): Promise<number> => {
         // Check if the client exists in the database
         const client = await db.select<{ id: number }>("SELECT id FROM client WHERE name = ?", [
@@ -208,7 +208,7 @@ const getOrCreateClientId = memoizeTransaction(
 );
 
 // Helper function to get or create the project id from the project and client names
-const getOrCreateProjectId = memoizeTransaction(
+const getOrCreateProjectId = memoizeDbFunction(
     async (db: IDatabase, projectName: string, clientId: number): Promise<number> => {
         // Check if the project exists in the database
         const project = await db.select<{ id: number }>(

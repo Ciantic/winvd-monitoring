@@ -1,5 +1,5 @@
 import { assertEquals } from "https://deno.land/std/testing/asserts.ts";
-import { memoizeTransaction, runMemoizeTransaction } from "./memoizeTransaction.ts";
+import { memoizeDbFunction, transaction } from "./memoizeTransaction.ts";
 
 class TransactionalDb {
     transaction<T>(fn: () => Promise<T>) {
@@ -13,7 +13,7 @@ Deno.test("memoizeTransaction normal", async () => {
     const db = new TransactionalDb();
 
     let numberOfTimesExecuted = 0;
-    const getOrCreateItemToDb = memoizeTransaction((db: TransactionalDb, value: number) => {
+    const getOrCreateItemToDb = memoizeDbFunction((db: TransactionalDb, value: number) => {
         return db.transaction(() => {
             numberOfTimesExecuted++;
             return Promise.resolve(value + 10);
@@ -45,7 +45,7 @@ Deno.test("memoizeTransaction commit", async () => {
     const db = new TransactionalDb();
 
     let numberOfTimesExecuted = 0;
-    const getOrCreateItemToDb = memoizeTransaction((db: TransactionalDb, value: string) => {
+    const getOrCreateItemToDb = memoizeDbFunction((db: TransactionalDb, value: string) => {
         return db.transaction(() => {
             numberOfTimesExecuted++;
             return Promise.resolve(value);
@@ -55,7 +55,7 @@ Deno.test("memoizeTransaction commit", async () => {
     await getOrCreateItemToDb(db, "Hello");
     // await getOrCreateItemToDb(db, 5);
 
-    const res = await runMemoizeTransaction(db, async () => {
+    const res = await transaction(db, async () => {
         const v1 = await getOrCreateItemToDb(db, " World");
         return v1;
     });
@@ -78,11 +78,11 @@ Deno.test("memoizeTransaction rollback", async () => {
         });
     }
 
-    const memoized = memoizeTransaction(getOrCreateItemToDb);
+    const memoized = memoizeDbFunction(getOrCreateItemToDb);
 
     let error;
     try {
-        await runMemoizeTransaction(transactionObject, async () => {
+        await transaction(transactionObject, async () => {
             await memoized(transactionObject, 5);
             throw new Error("Rollback");
         });

@@ -15,7 +15,7 @@ type Key = string | number;
 type TransactionDepth = number;
 type Cache = Map<Key, any>;
 
-class TransactionalCacheRemote implements IMemoizationCache {
+class MemoizationCache implements IMemoizationCache {
     transactionMap = new Map<TransactionDepth, Cache>([[0, new Map()]]);
 
     public getTransactionDepth?: () => TransactionDepth;
@@ -90,14 +90,11 @@ const transactionDepth = Symbol();
 type IDatabaseLike = {
     transaction<T>(fn: () => Promise<T>): Promise<T>;
 
-    [transactionMapCache]?: Map<symbol, TransactionalCacheRemote>;
+    [transactionMapCache]?: Map<symbol, MemoizationCache>;
     [transactionDepth]?: number;
 };
 
-export async function runMemoizeTransaction<T>(
-    db: IDatabaseLike,
-    fn: () => Promise<T>
-): Promise<T> {
+export async function transaction<T>(db: IDatabaseLike, fn: () => Promise<T>): Promise<T> {
     // Increment transaction depth
     db[transactionDepth] = (db[transactionDepth] ?? 0) + 1;
     let res: T;
@@ -135,12 +132,12 @@ export async function runMemoizeTransaction<T>(
  * validated by TypeScript
  * @returns memoized function
  */
-export function memoizeTransaction<F extends (this: void, db: any, ...args: any) => any>(fn: F) {
+export function memoizeDbFunction<F extends (this: void, db: any, ...args: any) => any>(fn: F) {
     // This does not check that first argument (db) implements IDatabaseLike, I
     // couldn't figure out how to make it reliably, this is the reason `db: any`.
 
     const symCache = Symbol();
-    const newCache = new TransactionalCacheRemote();
+    const newCache = new MemoizationCache();
     const fun = function (this: any, db: IDatabaseLike) {
         // Create map cache if not exist
         let mapCache = db[transactionMapCache];
@@ -164,7 +161,7 @@ export function memoizeTransaction<F extends (this: void, db: any, ...args: any)
 
     return fun as any as {
         (...args: Parameters<typeof fn>): ReturnType<typeof fn>;
-        cache: TransactionalCacheRemote;
+        cache: MemoizationCache;
     };
 }
 
