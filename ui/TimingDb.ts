@@ -76,8 +76,8 @@ export async function getTimings(
             client.name as client
         FROM timing, project, client
         WHERE timing.projectId = project.id AND project.clientId = client.id
-        ${input?.from ? sql`AND timing.start >= ${input.from.getTime()}` : sql``}
-        ${input?.to ? sql`AND timing.end <= ${input.to.getTime()}` : sql``}
+        ${sql.if`AND timing.start >= ${input?.from?.getTime()}`}
+        ${sql.if`AND timing.end <= ${input?.to?.getTime()}`}
     `;
     const rows = await db.select<{
         start: number;
