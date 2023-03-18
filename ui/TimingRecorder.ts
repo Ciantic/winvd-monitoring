@@ -130,10 +130,16 @@ export class TimingRecorder {
         this.onInsertTiming.trigger(timing);
     }
 
-    private saveTimings() {
+    private saveTimings(now = new Date()) {
+        this.keepAlive(now);
         const timings = [...this.timings];
-        const currentTiming = this.getCurrent();
-        if (currentTiming) {
+        const currentTiming = this.getCurrent(now);
+
+        // If current timing is at least 3 seconds, save it also
+        if (
+            currentTiming &&
+            currentTiming.end.getTime() - currentTiming.start.getTime() >= 3 * 1000
+        ) {
             timings.push(currentTiming);
         }
 

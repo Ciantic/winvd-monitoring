@@ -1,5 +1,12 @@
 import { assertEquals } from "https://deno.land/std/testing/asserts.ts";
-import { createSchema, getDailyTotals, getTimings, insertTimings } from "./TimingDb.ts";
+import {
+    createSchema,
+    getDailyTotals,
+    getSummaries,
+    getTimings,
+    insertSummary,
+    insertTimings,
+} from "./TimingDb.ts";
 import { DatabaseDeno } from "./utils/DatabaseDeno.ts";
 
 async function testDb() {
@@ -112,4 +119,24 @@ Deno.test("TimingDb daily totals", async () => {
             client: "Acme Inc",
         },
     ]);
+});
+
+Deno.test("TimingDb insert and get summary", async () => {
+    const db = await testDb();
+    const storedSummary = {
+        archived: false,
+        client: "Acme Inc",
+        project: "Secret Acme Car",
+        start: new Date("2020-01-01 00:00"),
+        end: new Date("2020-01-02 00:00"),
+        text: "Some text for a summary of days work",
+    };
+    await insertSummary(db, storedSummary);
+
+    const summaries = await getSummaries(db, {
+        from: new Date("2020-01-01 00:00"),
+        to: new Date("2025-01-02 00:00"),
+    });
+
+    assertEquals(summaries, [storedSummary]);
 });

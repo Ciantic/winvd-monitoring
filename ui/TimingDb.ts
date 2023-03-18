@@ -9,6 +9,15 @@ export interface Timing {
     end: Date;
 }
 
+export interface Summary {
+    start: Date;
+    end: Date;
+    text: string;
+    project: string;
+    client: string;
+    archived: boolean;
+}
+
 const CLIENT_SCHEMA = sql`
     CREATE TABLE IF NOT EXISTS client (
         id   INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -205,3 +214,72 @@ const getOrCreateProjectId = memoizeDbFunction(
         return result.lastInsertId;
     }
 );
+
+// Insert timing summary by a day
+export async function insertSummary(db: IDatabase, summary: Summary): Promise<void> {
+    await transaction(db, async () => {
+        // Get or create the client id from the client name
+        const clientId = await getOrCreateClientId(db, summary.client);
+        // Get or create the project id from the project and client names
+        const projectId = await getOrCreateProjectId(db, summary.project, clientId);
+        // Convert the start and end dates to milliseconds
+        const start = summary.start.getTime();
+        const end = summary.end.getTime();
+        // Insert the timing into the database
+
+        const query = sql`
+            INSERT INTO summary (start, [end], text, projectId, archived) 
+                VALUES (${start}, ${end}, ${summary.text}, ${projectId}, ${summary.archived})
+            ON CONFLICT DO UPDATE SET text = ${summary.text}, archived = ${summary.archived}
+        `;
+        await db.execute(query.sql, query.params);
+    });
+}
+
+export async function getSummaries(
+    db: IDatabase,
+    input: {
+        from: Date;
+        to: Date;
+        client?: string;
+        project?: string;
+        archived?: boolean;
+    }
+): Promise<Summary[]> {
+    const query = sql`
+        SELECT 
+            summary.start as start,
+            summary.end as end,
+            summary.text as text,
+            project.name as project,
+            client.name as client,
+            summary.archived as archived
+        FROM summary, project, client
+        WHERE 
+            summary.projectId = project.id 
+            AND project.clientId = client.id
+            AND summary.start BETWEEN ${input.from.getTime()} AND ${input.to.getTime()}
+            ${sql.if`AND client.name = ${input?.client}`}
+            ${sql.if`AND project.name = ${input?.project}`}
+            ${sql.if`AND summary.archived = ${input?.archived}`}
+        ORDER BY start DESC
+    `;
+
+    const rows = await db.select<{
+        start: number;
+        end: number;
+        text: string;
+        project: string;
+        client: string;
+        archived: number;
+    }>(query.sql, query.params);
+
+    return rows.map((row) => ({
+        start: new Date(row.start),
+        end: new Date(row.end),
+        text: row.text,
+        project: row.project,
+        client: row.client,
+        archived: row.archived === 1,
+    }));
+}
