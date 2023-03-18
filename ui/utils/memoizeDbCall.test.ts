@@ -31,7 +31,6 @@ Deno.test("memoizeDbFunction normal", async () => {
     const res4 = getOrCreateItemToDb(db, 4);
 
     const ref = (db as any)[Symbols.REF];
-    console.log(ref);
     assertEquals(numberOfTimesExecuted, 2);
     assertEquals(res1, res2);
     assertEquals(res3, res4);

@@ -17,6 +17,7 @@ export class TimingRecorder {
     private started?: Date;
     private lastKeepAlive?: Date;
     private keepAliveInterval = 0;
+    private saveInterval = 0;
     private timings: Timing[] = [];
 
     // Event listener hookup
@@ -34,11 +35,14 @@ export class TimingRecorder {
             this.keepAliveInterval = setInterval(() => this.keepAlive(), 30 * 1000);
         }
 
-        // TODO: Periodically save timings to database
+        // Save to database every 3 minutes
+        this.saveInterval = setInterval(() => this.saveTimings(), 3 * 60 * 1000);
     }
 
     public destroy() {
+        this.saveTimings();
         clearInterval(this.keepAliveInterval);
+        clearInterval(this.saveInterval);
     }
 
     public start({ client, project }: ClientAndProject, now = new Date()) {
@@ -124,7 +128,20 @@ export class TimingRecorder {
 
         // Send event to listeners
         this.onInsertTiming.trigger(timing);
+    }
 
-        this.save?.([timing]);
+    private saveTimings() {
+        const timings = [...this.timings];
+        const currentTiming = this.getCurrent();
+        if (currentTiming) {
+            timings.push(currentTiming);
+        }
+
+        try {
+            this.save?.(timings);
+            this.timings = [];
+        } catch (e) {
+            console.error("Error saving timings", e);
+        }
     }
 }
