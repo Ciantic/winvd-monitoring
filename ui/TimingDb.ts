@@ -11,50 +11,34 @@ export interface Timing {
 
 const CLIENT_SCHEMA = sql`
     CREATE TABLE IF NOT EXISTS client (
-        id   INTEGER PRIMARY KEY AUTOINCREMENT
-                    NOT NULL,
+        id   INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
         name VARCHAR NOT NULL,
-        CONSTRAINT UQ_CLIENT_NAME UNIQUE (
-            name 
-        )
+        CONSTRAINT UQ_CLIENT_NAME UNIQUE (name)
     );
 `;
 
 const PROJECT_SCHEMA = sql`
     CREATE TABLE IF NOT EXISTS project (
-        id       INTEGER PRIMARY KEY AUTOINCREMENT
-                        NOT NULL,
+        id       INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
         name     VARCHAR NOT NULL,
         clientId INTEGER NOT NULL,
-        CONSTRAINT UQ_CLIENT_PROJECT_NAME UNIQUE (
-            name,
-            clientId
-        ),
-        CONSTRAINT FK_816f608a9acf4a4314c9e1e9c66 FOREIGN KEY (
-            clientId
-        )
+        CONSTRAINT UQ_CLIENT_PROJECT_NAME UNIQUE (name, clientId),
+        CONSTRAINT FK_PROJECT_CLIENT_ID FOREIGN KEY (clientId)
         REFERENCES client (id) ON DELETE NO ACTION
-                            ON UPDATE NO ACTION
+                               ON UPDATE NO ACTION
     );
 `;
 
 const SUMMARY_SCHEMA = sql`
     CREATE TABLE IF NOT EXISTS summary (
-        id        INTEGER PRIMARY KEY AUTOINCREMENT
-                        NOT NULL,
+        id        INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
         archived  BOOLEAN NOT NULL,
         start     INTEGER NOT NULL,
         [end]     INTEGER NOT NULL,
         text      VARCHAR NOT NULL,
         projectId INTEGER NOT NULL,
-        CONSTRAINT UQ_CLIENT_PROJECT_NAME UNIQUE (
-            projectId,
-            start,
-            [end]
-        ),
-        CONSTRAINT FK_58e39f90b84d6c7da6e2887d8cc FOREIGN KEY (
-            projectId
-        )
+        CONSTRAINT UQ_CLIENT_PROJECT_NAME UNIQUE (projectId, start, [end]),
+        CONSTRAINT FK_SUMMARY_PROJECT_ID FOREIGN KEY (projectId)
         REFERENCES project (id) ON DELETE NO ACTION
                                 ON UPDATE NO ACTION
     );
@@ -62,18 +46,12 @@ const SUMMARY_SCHEMA = sql`
 
 const TIMING_SCHEMA = sql`
     CREATE TABLE IF NOT EXISTS timing (
-        id        INTEGER PRIMARY KEY AUTOINCREMENT
-                        NOT NULL,
+        id        INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
         start     INTEGER NOT NULL,
         [end]     INTEGER NOT NULL,
         projectId INTEGER NOT NULL,
-        CONSTRAINT UQ_CLIENT_PROJECT_NAME UNIQUE (
-            projectId,
-            start
-        ),
-        CONSTRAINT FK_2be89ec11939e820d8dc91b94a2 FOREIGN KEY (
-            projectId
-        )
+        CONSTRAINT UQ_CLIENT_PROJECT_NAME UNIQUE (projectId, start),
+        CONSTRAINT FK_TIMING_PROJECT_ID FOREIGN KEY (projectId)
         REFERENCES project (id) ON DELETE NO ACTION
                                 ON UPDATE NO ACTION
     );
@@ -139,8 +117,8 @@ export async function insertTimings(
         }
     });
 
-    console.log(getOrCreateClientId.cache);
-    console.log(getOrCreateProjectId.cache);
+    // console.log(getOrCreateClientId.cache);
+    // console.log(getOrCreateProjectId.cache);
 }
 
 export async function getDailyTotals(

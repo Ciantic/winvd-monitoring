@@ -8,11 +8,11 @@ async function testDb() {
     return db;
 }
 
-Deno.test("Create schema", async () => {
+Deno.test("TimingDb create schema", async () => {
     await testDb();
 });
 
-Deno.test("Insert timings", async () => {
+Deno.test("TimingDb insert timings", async () => {
     const db = await testDb();
     const timings = [
         {
@@ -33,7 +33,7 @@ Deno.test("Insert timings", async () => {
     assertEquals(timings, storedTimings);
 });
 
-Deno.test("Insert timings, errors", async () => {
+Deno.test("TimingDb insert timings, errors", async () => {
     const db = await testDb();
     const timings = [
         {
@@ -75,7 +75,7 @@ Deno.test("Insert timings, errors", async () => {
     assertEquals(timings2, storedTimings2);
 });
 
-Deno.test("Daily totals", async () => {
+Deno.test("TimingDb daily totals", async () => {
     const db = await testDb();
 
     await insertTimings(db, [
