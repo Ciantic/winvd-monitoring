@@ -1,5 +1,12 @@
-import { makeObservable, observable, computed, action, reaction } from "https://esm.sh/mobx";
-import { TauriProtocol } from "./IpcProtocol.ts";
+import {
+    makeObservable,
+    observable,
+    computed,
+    action,
+    reaction,
+    runInAction,
+} from "https://esm.sh/mobx";
+import { RustBackend } from "./IpcProtocol.ts";
 import { createSchema, getDailyTotals, insertTimings } from "./TimingDb.ts";
 import { TimingRecorder } from "./TimingRecorder.ts";
 import { emptyTotals, TotalsCache } from "./TotalsCache.ts";
@@ -25,7 +32,6 @@ export class MonitoringApp {
     @observable private isLoadingTotals = false;
     @observable private totals = emptyTotals();
 
-    private ipcRenderer: TauriProtocol = new TauriProtocol();
     private hideAfterTimeout = 0;
     private tickTimeout = 0;
     private updateTotalsTimeout = 0;
@@ -42,19 +48,23 @@ export class MonitoringApp {
 
         this.recorder.onInsertTiming.addListener(this.totalsCache.insertTiming, this.totalsCache);
 
-        this.ipcRenderer
-            .onVirtulaDesktopChanged(this.onChangeDesktop)
+        RustBackend.onVirtualDesktopChanged(this.onChangeDesktop)
             .onMonitoringPersonDetected(this.isPersonVisibleChanged)
             .onMonitoringPersonDetectorConnection(this.onPersonDetectorConnectionChange)
             .onTrayLeftClick(this.onTrayClick)
+            .onTrayMenuItemClick(this.onTrayMenuItemClick)
             .onBlur(this.onBlurApp)
             .onFocus(this.onFocusApp)
             .onMonitorsTurnedOff(this.onMonitorsTurnedOff)
             .onMonitorsTurnedOn(this.onMonitorsTurnedOn)
             .onComputerResumed(this.onComputerResumed)
             .onComputerSuspend(this.onComputerSuspend)
+            .onCloseRequested(this.onClose)
+            .onDestroy(this.onClose)
             .monitoringConnected()
             .then(this.onMainConnected.bind(this));
+
+        globalThis.addEventListener("beforeunload", this.onClose.bind(this));
 
         this.tickTimeout = setTimeout(this.tick, 0);
 
@@ -106,11 +116,7 @@ export class MonitoringApp {
 
     private show = () => {
         clearTimeout(this.hideAfterTimeout);
-        if (this.ipcRenderer) {
-            // setTimeout(() => {
-            this.ipcRenderer.monitoringShowWindow();
-            // }, 30);
-        }
+        RustBackend.monitoringShowWindow();
         this.hideWait();
     };
 
@@ -121,9 +127,7 @@ export class MonitoringApp {
                 return;
             }
 
-            if (this.ipcRenderer) {
-                this.ipcRenderer.monitoringHideWindow();
-            }
+            RustBackend.monitoringHideWindow();
         }, 5000);
     };
 
@@ -252,7 +256,7 @@ export class MonitoringApp {
             if (newValue.isRunning) {
                 this.show();
             }
-            this.ipcRenderer.monitoringRunningChanged(newValue.isRunning);
+            RustBackend.monitoringRunningChanged(newValue.isRunning);
         }
 
         this.updateTotals();
@@ -293,7 +297,7 @@ export class MonitoringApp {
     };
 
     private sendDesktopName = () => {
-        this.ipcRenderer.monitoringChangeDesktopName(`${this.client}: ${this.project}`);
+        RustBackend.monitoringChangeDesktopName(`${this.client}: ${this.project}`);
     };
 
     @action
@@ -334,29 +338,46 @@ export class MonitoringApp {
 
     @action
     private onMonitorsTurnedOff = () => {
+        console.info("Monitors turned off");
         this.isMonitorsOff = true;
     };
 
     @action
     private onMonitorsTurnedOn = () => {
+        console.info("Monitors turned on");
         this.isMonitorsOff = false;
     };
 
     @action
     private onComputerResumed = () => {
+        console.info("Computer returned from sleep");
         this.isSuspended = false;
     };
 
-    @action
     private onComputerSuspend = () => {
-        this.isSuspended = true;
+        console.info("Computer went to sleep");
+        runInAction(() => {
+            this.isSuspended = true;
+        });
+        this.recorder.save();
     };
 
     private onTrayClick = () => {
         this.show();
     };
 
+    private onTrayMenuItemClick = (id: "quit") => {
+        if (id === "quit") {
+            RustBackend.closeCurrentWindow();
+        }
+    };
+
     private onClickPlayPause = () => {
         this.playPause();
+    };
+
+    private onClose = () => {
+        console.info("Close requested, saving...");
+        this.recorder.save();
     };
 }

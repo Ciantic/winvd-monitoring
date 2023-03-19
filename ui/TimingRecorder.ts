@@ -25,7 +25,7 @@ export class TimingRecorder {
 
     constructor(
         enableKeepAlive: boolean,
-        private save?: (
+        private saveTimingsToDb?: (
             timings: { start: Date; end: Date; project: string; client: string }[]
         ) => Promise<void>,
         now = new Date()
@@ -36,11 +36,11 @@ export class TimingRecorder {
         }
 
         // Save to database every 3 minutes
-        this.saveInterval = setInterval(() => this.saveTimings(), 3 * 60 * 1000);
+        this.saveInterval = setInterval(() => this.save(), 3 * 60 * 1000);
     }
 
     public destroy() {
-        this.saveTimings();
+        this.save();
         clearInterval(this.keepAliveInterval);
         clearInterval(this.saveInterval);
     }
@@ -130,7 +130,7 @@ export class TimingRecorder {
         this.onInsertTiming.trigger(timing);
     }
 
-    private saveTimings(now = new Date()) {
+    public async save(now = new Date()) {
         this.keepAlive(now);
         const timings = [...this.timings];
         const currentTiming = this.getCurrent(now);
@@ -144,7 +144,7 @@ export class TimingRecorder {
         }
 
         try {
-            this.save?.(timings);
+            await this.saveTimingsToDb?.(timings);
             this.timings = [];
         } catch (e) {
             console.error("Error saving timings", e);

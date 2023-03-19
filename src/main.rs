@@ -266,14 +266,14 @@ fn main() {
         .system_tray(system_tray)
         .on_system_tray_event(|app, event| match event {
             tauri::SystemTrayEvent::MenuItemClick { id, .. } => {
-                if id == "quit" {
-                    let window = app.get_window("main").unwrap();
-                    window.close().unwrap();
+                if let Some(window) = app.get_window("main") {
+                    let _ = window.emit("tray_menu_item_click", id);
                 }
             }
             tauri::SystemTrayEvent::LeftClick { .. } => {
-                let window = app.get_window("main").unwrap();
-                window.emit("tray_left_click", ()).unwrap();
+                if let Some(window) = app.get_window("main") {
+                    let _ = window.emit("tray_left_click", ());
+                }
             }
             _ => {}
         })

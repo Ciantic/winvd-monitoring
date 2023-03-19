@@ -29,22 +29,22 @@ function listen(name: string, cb: (e: any) => void): Promise<any> {
     return Promise.resolve();
 }
 
-export class TauriProtocol {
+export const RustBackend = {
     monitoringChangeDesktopName(name: string): Promise<void> {
         return invoke("monitoring_change_desktop_name", { name });
-    }
+    },
 
     monitoringHideWindow(): Promise<void> {
         return invoke("monitoring_hide_window");
-    }
+    },
 
     monitoringShowWindow(): Promise<void> {
         return invoke("monitoring_show_window");
-    }
+    },
 
     monitoringRunningChanged(running: boolean): Promise<void> {
         return invoke("monitoring_running_changed", { running });
-    }
+    },
 
     monitoringConnected(): Promise<{
         desktop: { index: number; name: string };
@@ -52,55 +52,83 @@ export class TauriProtocol {
         person_is_visible: boolean;
     }> {
         return invoke("monitoring_connected");
-    }
+    },
 
-    onVirtulaDesktopChanged(cb: (desktop: { index: number; name: string }) => void) {
+    closeCurrentWindow(): Promise<void> {
+        if (typeof __TAURI__ === "undefined") {
+            return Promise.resolve();
+        }
+        return __TAURI__.window.getCurrent().close();
+    },
+
+    onVirtualDesktopChanged(cb: (desktop: { index: number; name: string }) => void) {
         listen("virtual_desktop_changed", cb);
         return this;
-    }
+    },
 
     onMonitoringPersonDetected(cb: (personIsVisible: boolean) => void) {
         listen("monitoring_person_detected", cb);
         return this;
-    }
+    },
 
     onMonitoringPersonDetectorConnection(cb: (personDetectorConnected: boolean) => void) {
         listen("monitoring_person_detector_connection", cb);
         return this;
-    }
+    },
 
     onComputerSuspend(cb: () => void) {
         listen("computer_will_suspend", cb);
         return this;
-    }
+    },
 
     onComputerResumed(cb: () => void) {
         listen("computer_resumed", cb);
         return this;
-    }
+    },
 
     onMonitorsTurnedOff(cb: () => void) {
         listen("monitors_turned_off", cb);
         return this;
-    }
+    },
 
     onMonitorsTurnedOn(cb: () => void) {
         listen("monitors_turned_on", cb);
         return this;
-    }
+    },
+
+    onTrayMenuItemClick(cb: (id: "quit") => void) {
+        listen("tray_menu_item_click", cb);
+        return this;
+    },
 
     onTrayLeftClick(cb: () => void) {
         listen("tray_left_click", cb);
         return this;
-    }
+    },
 
     onBlur(cb: () => void) {
         listen("blur", cb);
         return this;
-    }
+    },
 
     onFocus(cb: () => void) {
         listen("focus", cb);
         return this;
-    }
-}
+    },
+
+    onDestroy(cb: () => void) {
+        if (typeof __TAURI__ !== "undefined") {
+            __TAURI__.window.getCurrent().listen(__TAURI__.event.TauriEvent.WINDOW_DESTROYED, cb);
+        }
+        return this;
+    },
+
+    onCloseRequested(cb: () => void) {
+        if (typeof __TAURI__ !== "undefined") {
+            __TAURI__.window
+                .getCurrent()
+                .listen(__TAURI__.event.TauriEvent.WINDOW_CLOSE_REQUESTED, cb);
+        }
+        return this;
+    },
+};
