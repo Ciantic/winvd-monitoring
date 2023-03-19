@@ -6,7 +6,7 @@ import {
     reaction,
     runInAction,
 } from "https://esm.sh/mobx";
-import { RustBackend } from "./IpcProtocol.ts";
+import { RustBackend } from "./RustBackend.ts";
 import { createSchema, getDailyTotals, insertTimings } from "./TimingDb.ts";
 import { TimingRecorder } from "./TimingRecorder.ts";
 import { emptyTotals, TotalsCache } from "./TotalsCache.ts";
