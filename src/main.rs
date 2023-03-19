@@ -3,8 +3,11 @@
     windows_subsystem = "windows"
 )]
 
+mod powerevents;
+
+use powerevents::{create_power_events_listener, PowerEvent};
 use raw_window_handle::HasRawWindowHandle;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use tauri::{CustomMenuItem, Icon, Manager, SystemTray, SystemTrayMenu, Window, WindowEvent};
 use windows::Win32::{
     Foundation::HWND,
@@ -159,15 +162,6 @@ fn monitoring_running_changed(app: tauri::AppHandle, running: bool) {
 }
 
 #[tauri::command]
-fn monitoring_connected() -> MainConnected {
-    MainConnected {
-        desktop: WebDesktop::from(get_current_desktop().unwrap()),
-        person_detector_connected: false,
-        person_is_visible: false,
-    }
-}
-
-#[tauri::command]
 fn monitoring_change_desktop_name(name: String) {
     let _ = get_current_desktop().map(|d| d.set_name(&name));
 }
@@ -185,6 +179,47 @@ fn emit_focus_and_blur_events(window: &Window) {
     });
 }
 
+fn emit_power_events(window: &Window) {
+    let (sender, receiver) = std::sync::mpsc::channel::<PowerEvent>();
+
+    // Send events to the window
+    let window2 = window.clone();
+    std::thread::spawn(move || {
+        for event in receiver {
+            match event {
+                PowerEvent::ComputerResumed => {
+                    let _ = window2.emit("computer_resumed", ());
+                }
+                PowerEvent::ComputerWillSleep => {
+                    let _ = window2.emit("computer_will_suspend", ());
+                }
+                PowerEvent::MonitorsTurnedOff => {
+                    println!("Monitors turned off");
+                    let _ = window2.emit("monitors_turned_off", ());
+                }
+                PowerEvent::MonitorsTurnedOn => {
+                    println!("Monitors turned on");
+                    let _ = window2.emit("monitors_turned_on", ());
+                }
+            }
+        }
+    });
+
+    // Start listening for power events
+    let stopper = create_power_events_listener(sender);
+
+    // Stop listening when window is destroyed
+    let stop_listening = Arc::new(Mutex::new(Some(stopper)));
+    window.on_window_event(move |f| match f {
+        WindowEvent::Destroyed { .. } => {
+            if let Some(stop) = stop_listening.lock().unwrap().take() {
+                let _ = stop();
+            }
+        }
+        _ => {}
+    });
+}
+
 fn emit_monitoring_person_detected(window: &Window) {
     let _ = window.emit("monitoring_person_detected", true);
 }
@@ -193,16 +228,22 @@ fn emit_monitoring_person_detector_connection(window: &Window) {
     let _ = window.emit("monitoring_person_detector_connection", false);
 }
 
-// fn listen_desktop_events(window: &Window) {
-//     window.listen("desktopNameChanged", |ev| {
-//         if let Some(str) = ev.payload() {
-//             if let Ok(desktop) = serde_json::from_str::<DesktopNameChanged>(str) {
-//                 println!("Change desktop name {}", &desktop.name);
-//                 let _ = get_current_desktop().map(|d| d.set_name(&desktop.name));
-//             }
-//         }
-//     });
-// }
+#[tauri::command]
+fn monitoring_connected(window: Window) -> MainConnected {
+    // Listeners are now created, so we can start emitting events
+
+    // TODO: emit monitoring_person_detected true false
+    // TODO: emit monitoring_person_detector_connection true false
+
+    emit_desktop_event_thread(&window);
+    emit_focus_and_blur_events(&window);
+    emit_power_events(&window);
+    MainConnected {
+        desktop: WebDesktop::from(get_current_desktop().unwrap()),
+        person_detector_connected: false,
+        person_is_visible: false,
+    }
+}
 
 thread_local! {
     static ICON_RUNNING: Icon = Icon::Raw(include_bytes!("../icons/icon-running.ico").to_vec());
@@ -218,9 +259,7 @@ fn main() {
             let window = app.get_window("main").unwrap();
             window.open_devtools();
             pin_to_all_desktops(&window);
-            emit_desktop_event_thread(&window);
             setup_native_shadows(&window);
-            emit_focus_and_blur_events(&window);
             Ok(())
         })
         .plugin(tauri_plugin_sql::Builder::default().build())
@@ -236,22 +275,8 @@ fn main() {
                 let window = app.get_window("main").unwrap();
                 window.emit("tray_left_click", ()).unwrap();
             }
-            // tauri::SystemTrayEvent::RightClick {
-            //     tray_id,
-            //     position,
-            //     size,
-            //     ..
-            // } => (),
-            // tauri::SystemTrayEvent::DoubleClick {
-            //     tray_id,
-            //     position,
-            //     size,
-            //     ..
-            // } => (),
             _ => {}
         })
-        // .manage(Mutex::new(event_thread))
-        // .invoke_handler(tauri::generate_handler![desktop_event_process])
         .invoke_handler(tauri::generate_handler![
             monitoring_show_window,
             monitoring_hide_window,

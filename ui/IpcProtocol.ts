@@ -21,6 +21,7 @@ function invoke(name: string, payload?: any): Promise<any> {
 function listen(name: string, cb: (e: any) => void): Promise<any> {
     if (typeof __TAURI__ !== "undefined") {
         return __TAURI__.event.listen(name, (e) => {
+            // console.log("got event", name, cb);
             cb(e.payload);
         });
     }
@@ -32,15 +33,19 @@ export class TauriProtocol {
     monitoringChangeDesktopName(name: string): Promise<void> {
         return invoke("monitoring_change_desktop_name", { name });
     }
+
     monitoringHideWindow(): Promise<void> {
         return invoke("monitoring_hide_window");
     }
+
     monitoringShowWindow(): Promise<void> {
         return invoke("monitoring_show_window");
     }
+
     monitoringRunningChanged(running: boolean): Promise<void> {
         return invoke("monitoring_running_changed", { running });
     }
+
     monitoringConnected(): Promise<{
         desktop: { index: number; name: string };
         person_detector_connected: boolean;
@@ -49,31 +54,53 @@ export class TauriProtocol {
         return invoke("monitoring_connected");
     }
 
-    onVirtulaDesktopChanged(cb: (desktop: { index: number; name: string }) => void): void {
+    onVirtulaDesktopChanged(cb: (desktop: { index: number; name: string }) => void) {
         listen("virtual_desktop_changed", cb);
+        return this;
     }
 
-    onMonitoringPersonDetected(cb: (personIsVisible: boolean) => void): void {
+    onMonitoringPersonDetected(cb: (personIsVisible: boolean) => void) {
         listen("monitoring_person_detected", cb);
+        return this;
     }
 
-    onMonitoringPersonDetectorConnection(cb: (personDetectorConnected: boolean) => void): void {
+    onMonitoringPersonDetectorConnection(cb: (personDetectorConnected: boolean) => void) {
         listen("monitoring_person_detector_connection", cb);
+        return this;
     }
 
-    onMonitoringPowerStatusChanged(cb: (event: "suspend" | "resume") => void): void {
-        listen("monitoring_power_status_changed", cb);
+    onComputerSuspend(cb: () => void) {
+        listen("computer_will_suspend", cb);
+        return this;
     }
 
-    onTrayLeftClick(cb: () => void): void {
+    onComputerResumed(cb: () => void) {
+        listen("computer_resumed", cb);
+        return this;
+    }
+
+    onMonitorsTurnedOff(cb: () => void) {
+        listen("monitors_turned_off", cb);
+        return this;
+    }
+
+    onMonitorsTurnedOn(cb: () => void) {
+        listen("monitors_turned_on", cb);
+        return this;
+    }
+
+    onTrayLeftClick(cb: () => void) {
         listen("tray_left_click", cb);
+        return this;
     }
 
-    onBlur(cb: () => void): void {
+    onBlur(cb: () => void) {
         listen("blur", cb);
+        return this;
     }
 
-    onFocus(cb: () => void): void {
+    onFocus(cb: () => void) {
         listen("focus", cb);
+        return this;
     }
 }

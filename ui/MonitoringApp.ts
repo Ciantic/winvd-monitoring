@@ -18,6 +18,7 @@ export class MonitoringApp {
     @observable private isFocusedApp = false;
     @observable private isFocusedInput = false;
     @observable private isSuspended = false;
+    @observable private isMonitorsOff = false;
     @observable private client = "";
     @observable private project = "";
     @observable private pausedProjects = new Map<string, boolean>();
@@ -41,17 +42,19 @@ export class MonitoringApp {
 
         this.recorder.onInsertTiming.addListener(this.totalsCache.insertTiming, this.totalsCache);
 
-        this.ipcRenderer.onVirtulaDesktopChanged(this.onChangeDesktop);
-        this.ipcRenderer.onMonitoringPersonDetected(this.isPersonVisibleChanged);
-        this.ipcRenderer.onMonitoringPersonDetectorConnection(
-            this.onPersonDetectorConnectionChange
-        );
-        this.ipcRenderer.onMonitoringPowerStatusChanged(this.onPowerMonitorChanges);
-        this.ipcRenderer.onTrayLeftClick(this.onTrayClick);
-        this.ipcRenderer.onBlur(this.onBlurApp);
-        this.ipcRenderer.onFocus(this.onFocusApp);
-
-        this.ipcRenderer.monitoringConnected().then(this.onMainConnected.bind(this));
+        this.ipcRenderer
+            .onVirtulaDesktopChanged(this.onChangeDesktop)
+            .onMonitoringPersonDetected(this.isPersonVisibleChanged)
+            .onMonitoringPersonDetectorConnection(this.onPersonDetectorConnectionChange)
+            .onTrayLeftClick(this.onTrayClick)
+            .onBlur(this.onBlurApp)
+            .onFocus(this.onFocusApp)
+            .onMonitorsTurnedOff(this.onMonitorsTurnedOff)
+            .onMonitorsTurnedOn(this.onMonitorsTurnedOn)
+            .onComputerResumed(this.onComputerResumed)
+            .onComputerSuspend(this.onComputerSuspend)
+            .monitoringConnected()
+            .then(this.onMainConnected.bind(this));
 
         this.tickTimeout = setTimeout(this.tick, 0);
 
@@ -210,7 +213,8 @@ export class MonitoringApp {
                 !this.isFocusedInput &&
                 hasClientValue &&
                 hasProjectValue &&
-                !this.isSuspended
+                !this.isSuspended &&
+                !this.isMonitorsOff
             );
         }
         return (
@@ -218,7 +222,8 @@ export class MonitoringApp {
             !this.isFocusedInput &&
             hasProjectValue &&
             hasClientValue &&
-            !this.isSuspended
+            !this.isSuspended &&
+            !this.isMonitorsOff
         );
     }
 
@@ -292,11 +297,6 @@ export class MonitoringApp {
     };
 
     @action
-    private onPowerMonitorChanges = (event: "suspend" | "resume") => {
-        this.isSuspended = event === "suspend" ? true : false;
-    };
-
-    @action
     private onMainConnected = (data: {
         desktop: { index: number; name: string };
         person_detector_connected: boolean;
@@ -304,9 +304,7 @@ export class MonitoringApp {
     }) => {
         this.personDetectorConnected = data.person_detector_connected;
         this.isVisiblePerson = data.person_is_visible;
-        // this.updateDesktopsFromLocalDb().then(() => {
         this.onChangeDesktop(data.desktop);
-        // });
     };
 
     @action
@@ -332,6 +330,26 @@ export class MonitoringApp {
     @action
     private onFocusedInput = (isFocused: boolean) => {
         this.isFocusedInput = isFocused;
+    };
+
+    @action
+    private onMonitorsTurnedOff = () => {
+        this.isMonitorsOff = true;
+    };
+
+    @action
+    private onMonitorsTurnedOn = () => {
+        this.isMonitorsOff = false;
+    };
+
+    @action
+    private onComputerResumed = () => {
+        this.isSuspended = false;
+    };
+
+    @action
+    private onComputerSuspend = () => {
+        this.isSuspended = true;
     };
 
     private onTrayClick = () => {
