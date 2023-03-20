@@ -3,7 +3,6 @@ use std::sync::mpsc::Sender;
 use windows::{
     core::Result,
     s,
-    Win32::Graphics::Gdi::ValidateRect,
     Win32::{
         Foundation::{HANDLE, HWND, LPARAM, LRESULT, WPARAM},
         System::{
@@ -20,7 +19,7 @@ use windows::{
             CW_USEDEFAULT, IDC_ARROW, MSG, PBT_APMBATTERYLOW, PBT_APMOEMEVENT,
             PBT_APMPOWERSTATUSCHANGE, PBT_APMQUERYSUSPEND, PBT_APMQUERYSUSPENDFAILED,
             PBT_APMRESUMEAUTOMATIC, PBT_APMRESUMECRITICAL, PBT_APMRESUMESUSPEND, PBT_APMSUSPEND,
-            PBT_POWERSETTINGCHANGE, WINDOW_EX_STYLE, WM_CLOSE, WM_CREATE, WM_DESTROY, WM_PAINT,
+            PBT_POWERSETTINGCHANGE, WINDOW_EX_STYLE, WM_CLOSE, WM_CREATE, WM_DESTROY,
             WM_POWERBROADCAST, WNDCLASSA, WS_OVERLAPPEDWINDOW,
         },
     },
@@ -109,6 +108,7 @@ unsafe fn run_new_window(
 }
 
 extern "system" fn wndproc(window: HWND, message: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+    // This assumes there is only one instance of this wndproc, which suffices for my use case.
     static mut SENDER_PTR: Option<Box<Sender<PowerEvent>>> = None;
     unsafe {
         match message {
@@ -187,10 +187,6 @@ extern "system" fn wndproc(window: HWND, message: u32, wparam: WPARAM, lparam: L
                     _ => {}
                 }
                 LRESULT(1)
-            }
-            WM_PAINT => {
-                ValidateRect(window, None);
-                LRESULT(0)
             }
             _ => DefWindowProcA(window, message, wparam, lparam),
         }
