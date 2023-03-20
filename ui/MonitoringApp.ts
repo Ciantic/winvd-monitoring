@@ -354,21 +354,22 @@ export class MonitoringApp {
         this.isSuspended = false;
     };
 
-    private onComputerSuspend = () => {
+    private onComputerSuspend = async () => {
         console.info("Computer went to sleep");
         runInAction(() => {
             this.isSuspended = true;
         });
-        this.recorder.save();
+        await this.recorder.save();
     };
 
     private onTrayClick = () => {
         this.show();
     };
 
-    private onTrayMenuItemClick = (id: "quit") => {
+    private onTrayMenuItemClick = async (id: "quit") => {
         if (id === "quit") {
-            RustBackend.closeCurrentWindow();
+            await this.recorder.save();
+            await RustBackend.closeCurrentWindow();
         }
     };
 
@@ -376,8 +377,8 @@ export class MonitoringApp {
         this.playPause();
     };
 
-    private onClose = () => {
+    private onClose = async () => {
         console.info("Close requested, saving...");
-        this.recorder.save();
+        await this.recorder.save();
     };
 }

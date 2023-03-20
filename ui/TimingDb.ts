@@ -66,11 +66,28 @@ const TIMING_SCHEMA = sql`
     );
 `;
 
+const DAILY_TOTALS_VIEW = sql`
+    CREATE VIEW IF NOT EXISTS dailyTotals AS
+        SELECT strftime('%Y-%m-%d', CAST (start AS REAL) / 1000, 'unixepoch', 'localtime') AS day,
+            CAST (SUM([end] - start) AS REAL) / 3600000 AS hours,
+            client.name AS client,
+            project.name AS project
+        FROM timing,
+            project,
+            client
+        WHERE 1=1
+            AND timing.projectId = project.id
+            AND project.clientId = client.id
+        GROUP BY projectId, day
+        ORDER BY start DESC;
+`;
+
 export async function createSchema(db: IDatabase) {
     await db.execute(CLIENT_SCHEMA.sql);
     await db.execute(PROJECT_SCHEMA.sql);
     await db.execute(SUMMARY_SCHEMA.sql);
     await db.execute(TIMING_SCHEMA.sql);
+    await db.execute(DAILY_TOTALS_VIEW.sql);
 }
 
 export async function getTimings(
@@ -281,5 +298,39 @@ export async function getSummaries(
         project: row.project,
         client: row.client,
         archived: row.archived === 1,
+    }));
+}
+
+interface DailyTotal {
+    day: Date;
+    hours: number;
+    client: string;
+    project: string;
+}
+export async function getDailyTotalsSummed(db: IDatabase): Promise<DailyTotal[]> {
+    const query = sql`
+        SELECT 
+            day, 
+            hours, 
+            client, 
+            project 
+        FROM dailyTotals 
+        WHERE 1=1
+        AND day > strftime("%Y-%m-%d", DATETIME('now', 'localtime', '-120 days'))
+        AND hours > 0.05
+    `;
+
+    const rows = await db.select<{
+        day: string;
+        hours: number;
+        client: string;
+        project: string;
+    }>(query.sql, query.params);
+
+    return rows.map((row) => ({
+        day: new Date(row.day + "T00:00:00"),
+        hours: row.hours,
+        project: row.project,
+        client: row.client,
     }));
 }
