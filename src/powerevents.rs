@@ -52,9 +52,10 @@ unsafe fn run_new_window(
     hwnd_sender: Sender<HWND>,
     powerevents_sender: Sender<PowerEvent>,
 ) -> Result<()> {
+    let powerevents_sender_boxed = Box::new(powerevents_sender);
+
     let instance = GetModuleHandleA(None)?;
     debug_assert!(instance.0 != 0);
-    let pin_box_power_events_sender = Box::new(powerevents_sender);
     let window_class = s!("pwrevents");
 
     let wc = WNDCLASSA {
@@ -81,7 +82,7 @@ unsafe fn run_new_window(
         None,
         None,
         instance,
-        Some(Box::into_raw(pin_box_power_events_sender) as *mut _),
+        Some(Box::into_raw(powerevents_sender_boxed) as *mut _),
     );
     debug_assert!(hwnd.0 != 0);
 
