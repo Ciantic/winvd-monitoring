@@ -104,17 +104,19 @@ function cond(strings: TemplateStringsArray, ...values: (SqlTypes | undefined)[]
  * **Example:**
  *
  * ```ts
- * sql`SELECT * FROM table WHERE id IN (${sql.values([1, 2], [3, 4])});`
+ * sql`SELECT * FROM table WHERE (id, name) IN (${sql.values([1, "john"], [3, "mary"])});`
  * sql`INSERT INTO t2(x,y,z) ${sql.values([1, 2, 3], [2, 3, 4], [1, null, 5])};`
  * ```
  * Generates
  * ```sql
- * SELECT * FROM table WHERE id IN (VALUES (?, ?), (?, ?));
+ * SELECT * FROM table WHERE (id, name) IN (VALUES (?, ?), (?, ?));
  * INSERT INTO t2(x,y,z) VALUES (?, ?, ?), (?, ?, ?), (?, ?, ?);
  * ```
  *
  * Normally you would use this with `sql` template literal with array input for
  * `IN` statement but it generates also the parentheses.
+ *
+ * @returns { sql: string, params: unknown[] }
  */
 sql.values = sqlValues;
 
@@ -132,6 +134,7 @@ sql.values = sqlValues;
  *
  * @param strings
  * @param values
- * @returns
+ *
+ * @returns { sql: string | "", params: unknown[] }
  */
 sql.if = cond;
