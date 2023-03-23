@@ -169,12 +169,8 @@ export async function getDailyTotals(
             timing.projectId = project.id 
             AND project.clientId = client.id
             AND timing.start BETWEEN ${input.from.getTime()} AND ${input.to.getTime()}
-            ${typeof input.client !== "undefined" ? sql`AND client.name = ${input.client}` : sql``}
-            ${
-                typeof input.project !== "undefined"
-                    ? sql`AND project.name = ${input.project}`
-                    : sql``
-            }
+            ${sql.if`AND client.name = ${input?.client}`}
+            ${sql.if`AND project.name = ${input?.project}`}
         GROUP BY projectId, day
         ORDER BY start DESC
     `;
