@@ -147,6 +147,13 @@ export async function insertTimings(
     // console.log(getOrCreateProjectId.cache);
 }
 
+function localISO8601Date(date: Date) {
+    const day = ("00" + date.getDate()).slice(-2);
+    const month = ("00" + (date.getMonth() + 1)).slice(-2);
+    const year = date.getFullYear();
+    return `${year}-${month}-${day}`;
+}
+
 export async function getDailyTotals(
     db: IDatabase,
     input: {
@@ -156,23 +163,19 @@ export async function getDailyTotals(
         project?: string;
     }
 ): Promise<{ day: Date; hours: number; client: string; project: string }[]> {
-    // This implementation of daily totals can't split multiday timespan to multiple days
+    const startDayIso = localISO8601Date(input.from);
+    const endDayIso = localISO8601Date(input.to);
 
     const query = sql`
-        SELECT 
-            strftime('%Y-%m-%d', cast(start as real)/1000, 'unixepoch', 'localtime') as day, 
-            cast(SUM(end - start) as real)/3600000 as hours,
-            project.name as project,
-            client.name as client
-        FROM timing, project, client
-        WHERE 
-            timing.projectId = project.id 
-            AND project.clientId = client.id
-            AND timing.start BETWEEN ${input.from.getTime()} AND ${input.to.getTime()}
-            ${sql.if`AND client.name = ${input?.client}`}
-            ${sql.if`AND project.name = ${input?.project}`}
-        GROUP BY projectId, day
-        ORDER BY start DESC
+        SELECT day, hours, client, project 
+        FROM dailyTotals
+        WHERE 1=1
+            ${sql.if`AND client = ${input?.client}`}
+            ${sql.if`AND project = ${input?.project}`}
+            ${sql.if`AND day >= ${startDayIso}`}
+            ${sql.if`AND day <= ${endDayIso}`}
+        GROUP BY client, project, day
+        ORDER BY day DESC
     `;
 
     const rows = await db.select<{
