@@ -33,6 +33,25 @@ export interface TimingsProps {
 // Intentionally outside the component
 let focusedTimeout = 0;
 
+function durationFormatHHMMSS(hours: number): string {
+    const fullHours = Math.floor(hours);
+    const minutes = Math.floor((hours - fullHours) * 60);
+    const seconds = Math.floor(((hours - fullHours) * 60 - minutes) * 60);
+
+    const hoursStr = fullHours.toString();
+    const minutesStr = minutes.toString().padStart(2, "0");
+    const secondsStr = seconds.toString().padStart(2, "0");
+    return `${hoursStr}:${minutesStr}:${secondsStr}`;
+}
+function durationFormatHHMM(hours: number): string {
+    const fullHours = Math.floor(hours);
+    const minutes = Math.floor((hours - fullHours) * 60);
+
+    const hoursStr = fullHours.toString();
+    const minutesStr = minutes.toString().padStart(2, "0");
+    return `${hoursStr}:${minutesStr}`;
+}
+
 export const Timings = (p: TimingsProps) => {
     const onChangeClient = useCallback((e: JSX.TargetedEvent<HTMLInputElement, Event>) => {
         p.onChangeClient?.(e.currentTarget?.value);
@@ -114,18 +133,18 @@ export const Timings = (p: TimingsProps) => {
                         ].join(" ")}
                     />
                 </div>
-                <div className={"today"}>{p.todayTotal.toFixed(8)}</div>
+                <div className={"today"}>{p.todayTotal.toFixed(1)}</div>
             </div>
             <div className={"eightWeek"}>
-                <div className={"count"}>{p.eightWeekTotal.toFixed(8)}</div>
+                <div className={"count"}>{p.eightWeekTotal.toFixed(1)}</div>
                 <div className={"text"}>{Lang.eightWeek}</div>
             </div>
             <div className={"lastWeek"}>
-                <div className={"count"}>{p.lastWeekTotal.toFixed(8)}</div>
+                <div className={"count"}>{p.lastWeekTotal.toFixed(1)}</div>
                 <div className={"text"}>{Lang.lastWeek}</div>
             </div>
             <div className={"thisWeek"}>
-                <div className={"count"}>{p.thisWeekTotal.toFixed(8)}</div>
+                <div className={"count"}>{p.thisWeekTotal.toFixed(1)}</div>
                 <div className={"text"}>{Lang.thisWeek}</div>
             </div>
         </div>
