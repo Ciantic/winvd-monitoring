@@ -21,36 +21,36 @@ export interface Summary {
 const CLIENT_SCHEMA = sql`
     CREATE TABLE IF NOT EXISTS client (
         id   INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-        name VARCHAR NOT NULL,
+        name TEXT NOT NULL,
         CONSTRAINT UQ_CLIENT_NAME UNIQUE (name)
-    );
+    ) STRICT;
 `;
 
 const PROJECT_SCHEMA = sql`
     CREATE TABLE IF NOT EXISTS project (
         id       INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-        name     VARCHAR NOT NULL,
+        name     TEXT NOT NULL,
         clientId INTEGER NOT NULL,
         CONSTRAINT UQ_CLIENT_PROJECT_NAME UNIQUE (name, clientId),
         CONSTRAINT FK_PROJECT_CLIENT_ID FOREIGN KEY (clientId)
         REFERENCES client (id) ON DELETE NO ACTION
                                ON UPDATE NO ACTION
-    );
+    ) STRICT;
 `;
 
 const SUMMARY_SCHEMA = sql`
     CREATE TABLE IF NOT EXISTS summary (
         id        INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-        archived  BOOLEAN NOT NULL,
+        archived  INT NOT NULL, -- BOOLEAN
         start     INTEGER NOT NULL,
         [end]     INTEGER NOT NULL,
-        text      VARCHAR NOT NULL,
+        text      TEXT NOT NULL,
         projectId INTEGER NOT NULL,
         CONSTRAINT UQ_CLIENT_PROJECT_NAME UNIQUE (projectId, start, [end]),
         CONSTRAINT FK_SUMMARY_PROJECT_ID FOREIGN KEY (projectId)
         REFERENCES project (id) ON DELETE NO ACTION
                                 ON UPDATE NO ACTION
-    );
+    ) STRICT;
 `;
 
 const TIMING_SCHEMA = sql`
@@ -63,7 +63,7 @@ const TIMING_SCHEMA = sql`
         CONSTRAINT FK_TIMING_PROJECT_ID FOREIGN KEY (projectId)
         REFERENCES project (id) ON DELETE NO ACTION
                                 ON UPDATE NO ACTION
-    );
+    ) STRICT;
 `;
 
 const DAILY_TOTALS_VIEW = sql`
