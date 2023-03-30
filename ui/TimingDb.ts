@@ -42,8 +42,8 @@ const SUMMARY_SCHEMA = sql`
     CREATE TABLE IF NOT EXISTS summary (
         id        INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
         archived  INT NOT NULL, -- BOOLEAN
-        start     INTEGER NOT NULL,
-        [end]     INTEGER NOT NULL,
+        start     INTEGER NOT NULL, -- Unix timestamp in milliseconds
+        [end]     INTEGER NOT NULL, -- Unix timestamp in milliseconds
         text      TEXT NOT NULL,
         projectId INTEGER NOT NULL,
         CONSTRAINT UQ_CLIENT_PROJECT_NAME UNIQUE (projectId, start, [end]),
@@ -56,8 +56,8 @@ const SUMMARY_SCHEMA = sql`
 const TIMING_SCHEMA = sql`
     CREATE TABLE IF NOT EXISTS timing (
         id        INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-        start     INTEGER NOT NULL,
-        [end]     INTEGER NOT NULL,
+        start     INTEGER NOT NULL, -- Unix timestamp in milliseconds
+        [end]     INTEGER NOT NULL, -- Unix timestamp in milliseconds
         projectId INTEGER NOT NULL,
         CONSTRAINT UQ_CLIENT_PROJECT_NAME UNIQUE (projectId, start),
         CONSTRAINT FK_TIMING_PROJECT_ID FOREIGN KEY (projectId)
