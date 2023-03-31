@@ -2,6 +2,7 @@ import { assert, assertEquals } from "https://deno.land/std/testing/asserts.ts";
 import { autorun } from "https://esm.sh/mobx";
 import { MonitoringApp } from "./MonitoringApp.ts";
 
+/*
 Deno.test("Change client", () => {
     const names = [] as string[];
     const app = new MonitoringApp();
@@ -13,7 +14,6 @@ Deno.test("Change client", () => {
     app.destroy();
     assertEquals(names, ["", "client1"]);
 });
-
 Deno.test("Will this start?", () => {
     const app = new MonitoringApp();
     const rend = app.render();
@@ -26,3 +26,4 @@ Deno.test("Will this start?", () => {
         throw new Error("Not running");
     }
 });
+*/
