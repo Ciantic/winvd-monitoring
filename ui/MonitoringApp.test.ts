@@ -1,5 +1,5 @@
 import { assert, assertEquals } from "https://deno.land/std/testing/asserts.ts";
-import { autorun } from "https://esm.sh/mobx";
+import { autorun } from "npm:mobx";
 import { MonitoringApp } from "./MonitoringApp.ts";
 
 /*

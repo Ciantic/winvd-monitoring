@@ -31,7 +31,7 @@ export function cancellablePromise<T>(promise: Promise<T>): CancellablePromise<T
 //
 // Esbuild minifier removes this because of "&& Deno" check
 
-if (typeof Deno !== "undefined" && Deno) {
+if (typeof Deno !== "undefined" && "test" in Deno) {
     Deno.test("cancellablePromise", async () => {
         const p = cancellablePromise(
             new Promise((resolve) => {

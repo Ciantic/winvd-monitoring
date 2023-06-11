@@ -1,17 +1,10 @@
-import {
-    makeObservable,
-    observable,
-    computed,
-    action,
-    reaction,
-    runInAction,
-} from "https://esm.sh/mobx";
+import { makeObservable, observable, computed, action, reaction, runInAction } from "npm:mobx";
 import { RustBackend } from "./RustBackend.ts";
-import { createSchema, getDailyTotals, insertTimings } from "./TimingDb.ts";
+import { getDailyTotals, insertTimings } from "./TimingDb.ts";
 import { TimingRecorder } from "./TimingRecorder.ts";
 import { emptyTotals, TotalsCache } from "./TotalsCache.ts";
 import { cancellablePromise, CancellablePromise } from "./utils/cancellablePromise.ts";
-import { Database } from "./utils/Database.ts";
+import { createTimingDatabase } from "./TimingDbCreator.ts";
 
 declare function requestAnimationFrame(callback: () => void): void;
 
@@ -36,7 +29,7 @@ export class MonitoringApp {
     private tickTimeout = 0;
     private updateTotalsTimeout = 0;
     private sendDesktopNameBounceTimeout = 0;
-    private timingDb = new Database("sqlite:projects.db", createSchema);
+    private timingDb = createTimingDatabase();
     private recorder = new TimingRecorder(true, insertTimings.bind(null, this.timingDb));
     private totalsCache = new TotalsCache(getDailyTotals.bind(null, this.timingDb));
     private lastUpdateFromDb?: CancellablePromise<void>;
@@ -278,6 +271,7 @@ export class MonitoringApp {
         this.hideWait();
     };
 
+    @action
     private onFocusApp = () => {
         this.isFocusedApp = true;
     };

@@ -9,7 +9,7 @@ function invoke(name: string, payload?: any): Promise<any> {
     // For tests
     if (name === "monitoring_connected") {
         return Promise.resolve({
-            desktop: { index: 0, name: "Desktop 1" },
+            desktop: { index: 0, name: "Desktop 1: Work" },
             person_detector_connected: false,
             person_is_visible: false,
         });

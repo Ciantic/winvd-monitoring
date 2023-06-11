@@ -1,14 +1,17 @@
 import { IDatabase, QueryResult } from "./Database.ts";
-import { DB, QueryParameter } from "https://deno.land/x/sqlite/mod.ts";
 
-export class DatabaseDeno implements IDatabase {
+import { QueryParameter } from "https://deno.land/x/sqlite/src/query.ts";
+import { DB } from "https://deno.land/x/sqlite/src/db.ts";
+import { compile } from "https://deno.land/x/sqlite/build/sqlite.js";
+import { open } from "https://deno.land/x/sqlite/browser/mod.ts";
+
+export class DatabaseWasm implements IDatabase {
     private path: string;
-    private db: DB;
+    private db?: DB;
     private inited = false;
 
     constructor(path: string, private onInit?: (db: IDatabase) => Promise<void>) {
         this.path = path;
-        this.db = new DB(path);
     }
     async transaction<T>(fn: () => Promise<T>): Promise<T> {
         await this.execute("BEGIN TRANSACTION");
@@ -26,10 +29,23 @@ export class DatabaseDeno implements IDatabase {
     async init() {
         if (this.inited) return;
         this.inited = true;
+
+        // In deno
+        if (typeof Deno !== "undefined" && "test" in Deno) {
+            await compile();
+            this.db = new DB(this.path);
+        }
+
+        // In browser
+        this.db = (await open(this.path)) as any;
+
         await this.onInit?.(this);
     }
     async execute(query: string, bindValues?: unknown[]): Promise<QueryResult> {
         await this.init();
+        if (!this.db) {
+            throw new Error("Database not initialized");
+        }
         this.db.query(query, bindValues as QueryParameter[]);
         return Promise.resolve({
             lastInsertId: this.db.lastInsertRowId,
@@ -41,10 +57,16 @@ export class DatabaseDeno implements IDatabase {
         bindValues?: unknown[]
     ): Promise<T[]> {
         await this.init();
+        if (!this.db) {
+            throw new Error("Database not initialized");
+        }
         return Promise.resolve(this.db.queryEntries<T>(query, bindValues as QueryParameter[]));
     }
     async close(): Promise<boolean> {
         await this.init();
+        if (!this.db) {
+            throw new Error("Database not initialized");
+        }
         this.db.close();
         return Promise.resolve(true);
     }

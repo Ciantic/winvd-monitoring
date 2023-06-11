@@ -19,7 +19,7 @@ export function simpleMapEvent<TParam, TRes = void, TContext = unknown>(context?
     };
 }
 
-if (typeof Deno !== "undefined" && Deno) {
+if (typeof Deno !== "undefined" && "test" in Deno) {
     Deno.test("Listener gets the value", () => {
         const event = simpleMapEvent<{ foo: number }, void>();
         let value = 0;

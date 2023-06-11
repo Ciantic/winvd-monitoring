@@ -1,9 +1,9 @@
 /**
- * @jsxImportSource https://esm.sh/preact
+ * @jsxImportSource npm:preact
  **/
 
-import { useState, useCallback, useEffect } from "https://esm.sh/preact/hooks";
-import { render, JSX } from "https://esm.sh/preact";
+import { useCallback } from "npm:preact/hooks";
+import { JSX } from "npm:preact";
 
 // import styles from "./Timings.module.scss";
 import { Lang } from "../Lang.ts";

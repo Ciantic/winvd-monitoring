@@ -146,7 +146,7 @@ export function getDailyTotals(timing: Timing): Map<DayTimestamp, TotalHours> {
 }
 
 import { assertEquals } from "https://deno.land/std/testing/asserts.ts";
-if (typeof Deno !== "undefined" && Deno) {
+if (typeof Deno !== "undefined" && "test" in Deno) {
     Deno.test("getDailyTotals", () => {
         const timing = {
             start: new Date("2021-01-01 12:00"),

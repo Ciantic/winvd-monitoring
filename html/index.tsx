@@ -1,16 +1,19 @@
 /**
- * @jsxImportSource https://esm.sh/preact
+ * @jsxImportSource npm:preact
  **/
 
 declare const __TAURI__: typeof import("npm:@tauri-apps/api");
 
-import { autorun } from "https://esm.sh/mobx";
-import { useState, useCallback, useEffect } from "https://esm.sh/preact/hooks";
-import { render } from "https://esm.sh/preact";
+import { autorun } from "npm:mobx";
+import { useState, useCallback, useEffect } from "npm:preact/hooks";
+import { render } from "npm:preact";
 import { MonitoringApp } from "../ui/MonitoringApp.ts";
 import { Timings } from "../ui/components/Timings.tsx";
 
-const currentWindow = __TAURI__.window.getCurrent();
+function startDragging() {
+    if (typeof __TAURI__ === "undefined") return;
+    __TAURI__.window.getCurrent().startDragging();
+}
 
 const app = new MonitoringApp();
 
@@ -24,7 +27,7 @@ const App = () => {
     }, []);
 
     const startDrag = useCallback(async () => {
-        await currentWindow?.startDragging();
+        await startDragging();
     }, []);
 
     return (

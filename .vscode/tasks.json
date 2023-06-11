@@ -21,7 +21,7 @@
         {
             "label": "deno bundle",
             "type": "shell",
-            "command": "deno run --allow-read --allow-write --allow-env --allow-run --allow-net deno-build-typescript.ts \"./html/index.tsx\" \"./html/index.js\"",
+            "command": "deno run --allow-sys --allow-read --allow-write --allow-env --allow-run --allow-net deno-build-typescript.ts \"./html/index.tsx\" \"./html/index.js\"",
             "presentation": {
                 "echo": true,
                 "reveal": "never",
