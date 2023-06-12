@@ -1,5 +1,5 @@
 import * as esbuild from "npm:esbuild";
-// import { solidPlugin } from "npm:esbuild-plugin-solid";
+import { solidPlugin } from "npm:esbuild-plugin-solid";
 import { denoPlugins } from "https://deno.land/x/esbuild_deno_loader@0.8.1/mod.ts";
 
 async function buildTsFile(file: string, outFile: string) {
@@ -27,11 +27,11 @@ async function buildTsFile(file: string, outFile: string) {
 
     await esbuild.build({
         plugins: [
-            // solidPlugin({
-            //     solid: {
-            //         moduleName: "npm:solid-js/web",
-            //     },
-            // }),
+            solidPlugin({
+                solid: {
+                    moduleName: "npm:solid-js/web",
+                },
+            }),
             ...denoPlugins(),
         ],
         entryPoints: [file],
@@ -51,7 +51,7 @@ async function buildTsFile(file: string, outFile: string) {
             // Deno: "false",
             Deno: JSON.stringify({
                 build: {
-                    os: "browser",
+                    os: "browser", // Deno database uses browser key
                 },
             }),
         },

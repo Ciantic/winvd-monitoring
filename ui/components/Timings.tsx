@@ -1,11 +1,8 @@
 /**
- * @jsxImportSource npm:preact
+ * @jsxImportSource npm:solid-js
  **/
 
-import { useCallback } from "npm:preact/hooks";
-import { JSX } from "npm:preact";
-
-// import styles from "./Timings.module.scss";
+import { JSX } from "npm:solid-js/jsx-runtime";
 import { Lang } from "../Lang.ts";
 import { cns } from "../utils/classnames.ts";
 
@@ -53,24 +50,24 @@ function durationFormatHHMM(hours: number): string {
 }
 
 export const Timings = (p: TimingsProps) => {
-    const onChangeClient = useCallback((e: JSX.TargetedEvent<HTMLInputElement, Event>) => {
+    const onChangeClient: JSX.EventHandlerUnion<HTMLInputElement, InputEvent> = (e) => {
         p.onChangeClient?.(e.currentTarget?.value);
-    }, []);
+    };
 
-    const onChangeProject = useCallback((e: JSX.TargetedEvent<HTMLInputElement, Event>) => {
+    const onChangeProject: JSX.EventHandlerUnion<HTMLInputElement, InputEvent> = (e) => {
         p.onChangeProject?.(e.currentTarget?.value);
-    }, []);
+    };
 
-    const onFocus = useCallback((e: JSX.TargetedEvent<HTMLInputElement, Event>) => {
+    const onFocus: JSX.EventHandlerUnion<HTMLInputElement, FocusEvent> = (e) => {
         e.currentTarget?.select();
 
         if (focusedTimeout) clearTimeout(focusedTimeout);
         focusedTimeout = setTimeout(() => {
             p.onFocusedInput?.(true);
         }, 200);
-    }, []);
+    };
 
-    const onBlur = useCallback((e: JSX.TargetedEvent<HTMLInputElement, Event>) => {
+    const onBlur: JSX.EventHandlerUnion<HTMLInputElement, FocusEvent> = (e) => {
         // setFocused(false);
         e.currentTarget?.setSelectionRange(0, 0, "none");
 
@@ -78,25 +75,21 @@ export const Timings = (p: TimingsProps) => {
         focusedTimeout = setTimeout(() => {
             p.onFocusedInput?.(false);
         }, 200);
-    }, []);
+    };
 
-    const onClickPlayPause = useCallback(() => {
+    const onClickPlayPause = () => {
         p.onClickPlayPause?.();
-    }, []);
+    };
 
-    const onStartDragging = useCallback((e: JSX.TargetedMouseEvent<HTMLDivElement>) => {
+    const onStartDragging: JSX.EventHandlerUnion<HTMLDivElement, MouseEvent> = (e) => {
         if (e.target instanceof HTMLInputElement) return;
         if (e.target instanceof HTMLDivElement && e.target.matches(".indicator")) return;
         p.startDragging();
-    }, []);
+    };
 
     return (
         <div
-            className={cns(
-                "timings",
-                p.isFocused && "isFocused",
-                p.isLoadingTotals && "loadingTotals"
-            )}
+            class={cns("timings", p.isFocused && "isFocused", p.isLoadingTotals && "loadingTotals")}
             onMouseDown={onStartDragging}
         >
             <input
@@ -104,7 +97,7 @@ export const Timings = (p: TimingsProps) => {
                 onFocus={onFocus}
                 onBlur={onBlur}
                 onInput={onChangeClient}
-                className={"clientName"}
+                class={"clientName"}
                 value={p.clientName}
                 spellcheck={false}
             />
@@ -113,13 +106,13 @@ export const Timings = (p: TimingsProps) => {
                 onFocus={onFocus}
                 onBlur={onBlur}
                 onInput={onChangeProject}
-                className={"projectName"}
+                class={"projectName"}
                 value={p.projectName}
                 spellcheck={false}
             />
-            <div className="todayIndicator">
+            <div class="todayIndicator">
                 <div
-                    className={cns(
+                    class={cns(
                         "indicator",
                         p.isRunning ? "enabled" : "disabled",
                         p.isPaused && "paused"
@@ -127,25 +120,24 @@ export const Timings = (p: TimingsProps) => {
                     onClick={onClickPlayPause}
                 >
                     <div
-                        className={[
-                            "sensor",
-                            p.personDetectorConnected ? "enabled" : "disabled",
-                        ].join(" ")}
+                        class={["sensor", p.personDetectorConnected ? "enabled" : "disabled"].join(
+                            " "
+                        )}
                     />
                 </div>
-                <div className={"today"}>{p.todayTotal.toFixed(1)}</div>
+                <div class={"today"}>{p.todayTotal.toFixed(1)}</div>
             </div>
-            <div className={"eightWeek"}>
-                <div className={"count"}>{p.eightWeekTotal.toFixed(1)}</div>
-                <div className={"text"}>{Lang.eightWeek}</div>
+            <div class={"eightWeek"}>
+                <div class={"count"}>{p.eightWeekTotal.toFixed(1)}</div>
+                <div class={"text"}>{Lang.eightWeek}</div>
             </div>
-            <div className={"lastWeek"}>
-                <div className={"count"}>{p.lastWeekTotal.toFixed(1)}</div>
-                <div className={"text"}>{Lang.lastWeek}</div>
+            <div class={"lastWeek"}>
+                <div class={"count"}>{p.lastWeekTotal.toFixed(1)}</div>
+                <div class={"text"}>{Lang.lastWeek}</div>
             </div>
-            <div className={"thisWeek"}>
-                <div className={"count"}>{p.thisWeekTotal.toFixed(1)}</div>
-                <div className={"text"}>{Lang.thisWeek}</div>
+            <div class={"thisWeek"}>
+                <div class={"count"}>{p.thisWeekTotal.toFixed(1)}</div>
+                <div class={"text"}>{Lang.thisWeek}</div>
             </div>
         </div>
     );
