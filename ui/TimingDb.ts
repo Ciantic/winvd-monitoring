@@ -51,6 +51,8 @@ const SUMMARY_SCHEMA = sql`
         REFERENCES project (id) ON DELETE NO ACTION
                                 ON UPDATE NO ACTION
     ) STRICT;
+
+    CREATE INDEX IF NOT EXISTS IDX_SUMMARY_START ON summary (start);
 `;
 
 const TIMING_SCHEMA = sql`
@@ -64,22 +66,46 @@ const TIMING_SCHEMA = sql`
         REFERENCES project (id) ON DELETE NO ACTION
                                 ON UPDATE NO ACTION
     ) STRICT;
+
+    CREATE INDEX IF NOT EXISTS IDX_TIMING_START ON timing (start);
 `;
 
+// This view performs poorly, but it's a helper for manual queries
 const DAILY_TOTALS_VIEW = sql`
     CREATE VIEW IF NOT EXISTS dailyTotals AS
         SELECT strftime('%Y-%m-%d', CAST (start AS REAL) / 1000, 'unixepoch', 'localtime') AS day,
             CAST (SUM([end] - start) AS REAL) / 3600000 AS hours,
             client.name AS client,
-            project.name AS project
+            project.name AS project,
+            projectId
         FROM timing,
             project,
             client
         WHERE 1=1
             AND timing.projectId = project.id
             AND project.clientId = client.id
-        GROUP BY projectId, day
+        GROUP BY projectId, day 
         ORDER BY start DESC;
+`;
+
+// This view performs poorly, but it's a helper for manual queries
+const DAILY_SUMMARIES_VIEW = sql`
+    CREATE VIEW IF NOT EXISTS dailySummaries AS
+        SELECT 
+            strftime('%Y-%m-%d', CAST (s.start AS REAL) / 1000, 'unixepoch', 'localtime') AS day,
+            s.text as summary, 
+            c.name as client, 
+            p.name as project,
+            s.projectId
+        FROM 
+            summary as s, 
+            client as c, 
+            project as p 
+        WHERE 1=1
+            AND p.id = s.projectId
+            AND p.clientId = c.Id
+        ORDER BY s.start DESC;
+
 `;
 
 export async function createSchema(db: IDatabase) {
@@ -88,6 +114,7 @@ export async function createSchema(db: IDatabase) {
     await db.execute(SUMMARY_SCHEMA.sql);
     await db.execute(TIMING_SCHEMA.sql);
     await db.execute(DAILY_TOTALS_VIEW.sql);
+    await db.execute(DAILY_SUMMARIES_VIEW.sql);
 }
 
 export async function getTimings(
@@ -103,14 +130,16 @@ export async function getTimings(
         FROM timing, project, client
         WHERE timing.projectId = project.id AND project.clientId = client.id
         ${sql.if`AND timing.start >= ${input?.from?.getTime()}`}
-        ${sql.if`AND timing.end <= ${input?.to?.getTime()}`}
+        ${sql.if`AND timing.start <= ${input?.to?.getTime()}`}
     `;
+
     const rows = await db.select<{
         start: number;
         end: number;
         project: string;
         client: string;
     }>(query.sql, query.params);
+
     return rows.map((row) => ({
         start: new Date(row.start),
         end: new Date(row.end),
@@ -132,6 +161,7 @@ export async function insertTimings(
             // Convert the start and end dates to milliseconds
             const start = timing.start.getTime();
             const end = timing.end.getTime();
+
             // Insert the timing into the database
             await db.execute(
                 `
@@ -142,9 +172,6 @@ export async function insertTimings(
             );
         }
     });
-
-    // console.log(getOrCreateClientId.cache);
-    // console.log(getOrCreateProjectId.cache);
 }
 
 function localISO8601Date(date: Date) {
@@ -154,6 +181,14 @@ function localISO8601Date(date: Date) {
     return `${year}-${month}-${day}`;
 }
 
+type DailyTotalSummary = {
+    day: Date;
+    hours: number;
+    client: string;
+    project: string;
+    summary: string;
+};
+
 export async function getDailyTotals(
     db: IDatabase,
     input: {
@@ -162,35 +197,37 @@ export async function getDailyTotals(
         client?: string;
         project?: string;
     }
-): Promise<{ day: Date; hours: number; client: string; project: string }[]> {
-    const startDayIso = localISO8601Date(input.from);
-    const endDayIso = localISO8601Date(input.to);
+): Promise<DailyTotalSummary[]> {
+    const timings = await getTimings(db, input);
+    const summaries = await getSummaries(db, input);
 
-    const query = sql`
-        SELECT day, hours, client, project 
-        FROM dailyTotals
-        WHERE 1=1
-            ${sql.if`AND client = ${input?.client}`}
-            ${sql.if`AND project = ${input?.project}`}
-            ${sql.if`AND day >= ${startDayIso}`}
-            ${sql.if`AND day <= ${endDayIso}`}
-        GROUP BY client, project, day
-        ORDER BY day DESC
-    `;
+    // Index summaries by start date
+    const summariesByDayClientProject = summaries.reduce((summariesByDay, summary) => {
+        const day = localISO8601Date(summary.start);
+        const key = `${day}-${summary.client}-${summary.project}`;
+        summariesByDay[key] = summary;
+        return summariesByDay;
+    }, {} as Record<string, Summary>);
 
-    const rows = await db.select<{
-        day: string;
-        hours: number;
-        project: string;
-        client: string;
-    }>(query.sql, query.params);
+    // Sum all start and end times for each day
+    const totals = timings.reduce((totals, timing) => {
+        const day = localISO8601Date(timing.start);
+        const hours = (timing.end.getTime() - timing.start.getTime()) / 3600000;
+        const key = `${day}-${timing.client}-${timing.project}`;
+        if (!totals[key]) {
+            totals[key] = {
+                day: timing.start,
+                hours: 0,
+                client: timing.client,
+                project: timing.project,
+                summary: summariesByDayClientProject[key]?.text || "",
+            };
+        }
+        totals[key].hours += hours;
+        return totals;
+    }, {} as Record<string, DailyTotalSummary>);
 
-    return rows.map((row) => ({
-        day: new Date(row.day + "T00:00:00"),
-        hours: row.hours,
-        project: row.project,
-        client: row.client,
-    }));
+    return Object.values(totals);
 }
 
 // Helper function to get or create the client id from the client name
@@ -241,14 +278,43 @@ export async function insertSummary(db: IDatabase, summary: Summary): Promise<vo
         // Convert the start and end dates to milliseconds
         const start = summary.start.getTime();
         const end = summary.end.getTime();
-        // Insert the timing into the database
 
+        // Insert the timing into the database
         const query = sql`
             INSERT INTO summary (start, [end], text, projectId, archived) 
                 VALUES (${start}, ${end}, ${summary.text}, ${projectId}, ${summary.archived})
             ON CONFLICT DO UPDATE SET text = ${summary.text}, archived = ${summary.archived}
         `;
         await db.execute(query.sql, query.params);
+    });
+}
+
+export async function insertSummaryForDay(
+    db: IDatabase,
+    summary: {
+        day: Date; // Truncated to start of day
+        project: string;
+        client: string;
+        summary: string;
+    }
+): Promise<void> {
+    // Get start of day
+    const day = new Date(summary.day);
+    day.setHours(0, 0, 0, 0);
+
+    // Get start of next day
+    const nextDay = new Date(day);
+    nextDay.setDate(nextDay.getDate() + 1);
+    nextDay.setHours(0, 0, 0, 0);
+
+    // Insert summary
+    await insertSummary(db, {
+        start: day,
+        end: nextDay,
+        project: summary.project,
+        client: summary.client,
+        text: summary.summary,
+        archived: false,
     });
 }
 
@@ -265,7 +331,7 @@ export async function getSummaries(
     const query = sql`
         SELECT 
             summary.start as start,
-            summary.end as end,
+            summary.end as [end],
             summary.text as text,
             project.name as project,
             client.name as client,
@@ -297,39 +363,5 @@ export async function getSummaries(
         project: row.project,
         client: row.client,
         archived: row.archived === 1,
-    }));
-}
-
-interface DailyTotal {
-    day: Date;
-    hours: number;
-    client: string;
-    project: string;
-}
-export async function getDailyTotalsSummed(db: IDatabase): Promise<DailyTotal[]> {
-    const query = sql`
-        SELECT 
-            day, 
-            hours, 
-            client, 
-            project 
-        FROM dailyTotals 
-        WHERE 1=1
-        AND day > strftime("%Y-%m-%d", DATETIME('now', 'localtime', '-120 days'))
-        AND hours > 0.05
-    `;
-
-    const rows = await db.select<{
-        day: string;
-        hours: number;
-        client: string;
-        project: string;
-    }>(query.sql, query.params);
-
-    return rows.map((row) => ({
-        day: new Date(row.day + "T00:00:00"),
-        hours: row.hours,
-        project: row.project,
-        client: row.client,
     }));
 }

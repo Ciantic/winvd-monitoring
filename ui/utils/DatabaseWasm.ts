@@ -30,14 +30,14 @@ export class DatabaseWasm implements IDatabase {
         if (this.inited) return;
         this.inited = true;
 
-        // In deno
         if (typeof Deno !== "undefined" && "test" in Deno) {
+            // In deno
             await compile();
             this.db = new DB(this.path);
+        } else {
+            // In browser
+            this.db = (await open(this.path)) as any;
         }
-
-        // In browser
-        this.db = (await open(this.path)) as any;
 
         await this.onInit?.(this);
     }
@@ -69,5 +69,21 @@ export class DatabaseWasm implements IDatabase {
         }
         this.db.close();
         return Promise.resolve(true);
+    }
+
+    async export(): Promise<Uint8Array> {
+        await this.init();
+        if (!this.db) {
+            throw new Error("Database not initialized");
+        }
+        return this.db.serialize();
+    }
+
+    async import(data: Uint8Array): Promise<void> {
+        await this.init();
+        if (!this.db) {
+            throw new Error("Database not initialized");
+        }
+        this.db.deserialize(data);
     }
 }

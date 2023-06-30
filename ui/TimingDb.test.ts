@@ -5,12 +5,13 @@ import {
     getSummaries,
     getTimings,
     insertSummary,
+    insertSummaryForDay,
     insertTimings,
 } from "./TimingDb.ts";
-import { DatabaseDeno } from "./utils/DatabaseDeno.ts";
+import { DatabaseWasm } from "./utils/DatabaseWasm.ts";
 
 async function testDb() {
-    const db = new DatabaseDeno(":memory:");
+    const db = new DatabaseWasm(":memory:");
     await createSchema(db);
     return db;
 }
@@ -111,12 +112,19 @@ Deno.test("TimingDb daily totals", async () => {
     });
 
     assertEquals(storedTimings, [
-        { day: new Date("2022-01-01 00:00"), hours: 1, project: "VR Glasses", client: "Mega corp" },
+        {
+            day: new Date("2022-01-01 00:00"),
+            hours: 1,
+            project: "VR Glasses",
+            client: "Mega corp",
+            summary: "",
+        },
         {
             day: new Date("2020-01-01 00:00"),
             hours: 2,
             project: "Secret Acme Car",
             client: "Acme Inc",
+            summary: "",
         },
     ]);
 });
@@ -139,4 +147,88 @@ Deno.test("TimingDb insert and get summary", async () => {
     });
 
     assertEquals(summaries, [storedSummary]);
+});
+
+Deno.test("TimingDb insert daily summaries and get them", async () => {
+    const db = await testDb();
+
+    await insertTimings(db, [
+        {
+            client: "Acme Inc",
+            project: "Secret Acme Car",
+            start: new Date("2020-07-01 17:00"),
+            end: new Date("2020-07-01 18:00"),
+        },
+        {
+            client: "Acme Inc",
+            project: "Secret Acme Car",
+            start: new Date("2020-07-02 11:00"),
+            end: new Date("2020-07-02 12:00"),
+        },
+        {
+            client: "Acme Inc",
+            project: "Secret Acme Car",
+            start: new Date("2020-07-03 12:00"),
+            end: new Date("2020-07-03 13:00"),
+        },
+    ]);
+
+    await insertSummaryForDay(db, {
+        client: "Acme Inc",
+        project: "Secret Acme Car",
+        day: new Date("2020-07-01 00:00"),
+        summary: "Some text for a summary of days work",
+    });
+
+    await insertSummaryForDay(db, {
+        client: "Acme Inc",
+        project: "Secret Acme Car",
+        day: new Date("2020-07-02 00:00"),
+        summary: "Another text for a summary of days work",
+    });
+
+    const summaries = await getSummaries(db, {
+        from: new Date("2020-06-01 00:00"),
+        to: new Date("2025-01-02 00:00"),
+    });
+
+    assertEquals(summaries, [
+        {
+            archived: false,
+            client: "Acme Inc",
+            project: "Secret Acme Car",
+            start: new Date("2020-07-01 00:00"),
+            end: new Date("2020-07-02 00:00"),
+            text: "Some text for a summary of days work",
+        },
+        {
+            archived: false,
+            client: "Acme Inc",
+            project: "Secret Acme Car",
+            start: new Date("2020-07-02 00:00"),
+            end: new Date("2020-07-03 00:00"),
+            text: "Another text for a summary of days work",
+        },
+    ]);
+
+    const totals = await getDailyTotals(db, {
+        from: new Date("2020-07-01 00:00"),
+        to: new Date("2025-01-02 00:00"),
+    });
+    // assertEquals(totals, [
+    //     {
+    //         client: "Acme Inc",
+    //         day: new Date("2020-07-01 00:00"),
+    //         hours: 1,
+    //         project: "Secret Acme Car",
+    //         summary: "Some text for a summary of days work",
+    //     },
+    //     {
+    //         client: "Acme Inc",
+    //         day: new Date("2020-07-02 00:00"),
+    //         hours: 2,
+    //         project: "Secret Acme Car",
+    //         summary: "Another text for a summary of days work",
+    //     },
+    // ]);
 });

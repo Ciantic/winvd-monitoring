@@ -1,6 +1,6 @@
 import * as esbuild from "npm:esbuild";
 import { solidPlugin } from "npm:esbuild-plugin-solid";
-import { denoPlugins } from "https://deno.land/x/esbuild_deno_loader@0.8.1/mod.ts";
+import { denoPlugins } from "https://cdn.jsdelivr.net/gh/Ciantic/esbuild_deno_loader/mod.ts";
 
 async function buildTsFile(file: string, outFile: string) {
     if (!file) {
@@ -25,14 +25,19 @@ async function buildTsFile(file: string, outFile: string) {
         return false;
     }
 
+    const [denoLoader, denoResolver] = denoPlugins({
+        loader: "native",
+    });
+
     await esbuild.build({
         plugins: [
+            denoLoader,
             solidPlugin({
                 solid: {
                     moduleName: "npm:solid-js/web",
                 },
             }),
-            ...denoPlugins(),
+            denoResolver,
         ],
         entryPoints: [file],
         outfile: outFile,

@@ -1,4 +1,4 @@
-import { createSchema, insertSummary, insertTimings } from "./TimingDb.ts";
+import { createSchema, insertSummaryForDay, insertTimings } from "./TimingDb.ts";
 import { createDatabase } from "./utils/Database.ts";
 
 const DATABASE_PATH = "__TAURI__" in window ? "projects.db" : ":memory:";
@@ -14,6 +14,9 @@ export function createTimingDatabase() {
             const four_weeks_ago = new Date(now.getTime() - 4 * 7 * 24 * 60 * 60 * 1000);
             const four_weeks_ago_plus_2 = new Date(four_weeks_ago.getTime() + 2 * 60 * 60 * 1000);
 
+            const four_weeks_ago_start_of_day = new Date(four_weeks_ago);
+            four_weeks_ago_start_of_day.setHours(0, 1, 0, 0);
+
             await insertTimings(db, [
                 {
                     project: "Work",
@@ -28,6 +31,19 @@ export function createTimingDatabase() {
                     end: now,
                 },
             ]);
+
+            await insertSummaryForDay(db, {
+                day: four_weeks_ago,
+                project: "Work",
+                client: "Desktop 1",
+                summary: "Hello!",
+            });
+            await insertSummaryForDay(db, {
+                day: now,
+                project: "Work",
+                client: "Desktop 1",
+                summary: "YAY!",
+            });
         }
     });
 }

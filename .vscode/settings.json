@@ -6,6 +6,7 @@
     "deno.config": "./deno.jsonc",
     "triggerTaskOnSave.tasks": {
         "deno bundle": ["**/*.ts", "**/*.tsx"],
+        "deno bundle stats": ["**/*.ts", "**/*.tsx"],
         "deno sass": ["**/*.scss"]
     }
 }
