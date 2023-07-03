@@ -198,15 +198,22 @@ export async function getDailyTotals(
         project?: string;
     }
 ): Promise<DailyTotalSummary[]> {
-    // Measure time
-    const start = Date.now();
-    const timings = await getTimings(db, input);
-    console.log(`getTimings took ${Date.now() - start}ms`);
+    // Coerce the from and to dates to midnight
+    const from = new Date(input.from);
+    from.setHours(0, 0, 0, 0);
 
-    // Measure time
-    const start2 = Date.now();
-    const summaries = await getSummaries(db, input);
-    console.log(`getSummaries took ${Date.now() - start2}ms`);
+    const to = new Date(input.to);
+    to.setHours(24, 0, 0, 0);
+
+    const inputMidnights = {
+        from,
+        to,
+        client: input.client,
+        project: input.project,
+    };
+
+    const timings = await getTimings(db, inputMidnights);
+    const summaries = await getSummaries(db, inputMidnights);
 
     // Index summaries by start date
     const summariesByDayClientProject = summaries.reduce((summariesByDay, summary) => {
@@ -235,9 +242,6 @@ export async function getDailyTotals(
         totals[key].hours += hours;
         return totals;
     }, {} as Record<string, DailyTotalSummary>);
-
-    // Total time
-    console.log(`getDailyTotals took ${Date.now() - start}ms`);
 
     return Object.values(totals);
 }
@@ -290,6 +294,15 @@ export async function insertSummary(db: IDatabase, summary: Summary): Promise<vo
         // Convert the start and end dates to milliseconds
         const start = summary.start.getTime();
         const end = summary.end.getTime();
+
+        if (summary.text.length == 0) {
+            // Delete the summary from the database
+            const query = sql`
+                DELETE FROM summary WHERE start = ${start} AND projectId = ${projectId}
+            `;
+            await db.execute(query.sql, query.params);
+            return;
+        }
 
         // Insert the timing into the database
         const query = sql`

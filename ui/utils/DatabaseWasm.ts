@@ -62,7 +62,11 @@ export class DatabaseWasm implements IDatabase {
         bindValues?: unknown[] | undefined
     ): Promise<T[]> {
         await this.init();
-        return await this.db.selectObjects(query, bindValues);
+        // const start = performance.now();
+        const values = await this.db.selectObjects(query, bindValues);
+        // const end = performance.now();
+        // console.log(`Query took ${end - start}ms - ${query}`);
+        return values;
     }
 
     async *selectYield<T extends Record<string, unknown>>(

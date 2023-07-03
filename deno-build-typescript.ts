@@ -54,11 +54,11 @@ async function buildTsFile(file: string, outFile: string) {
         // minify: true,
         define: {
             // Deno: "false",
-            Deno: JSON.stringify({
-                build: {
-                    os: "browser", // Deno database uses browser key
-                },
-            }),
+            // Deno: JSON.stringify({
+            //     build: {
+            //         os: "browser", // Deno database uses browser key
+            //     },
+            // }),
         },
     });
 }

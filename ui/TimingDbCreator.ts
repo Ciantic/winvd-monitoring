@@ -1,14 +1,9 @@
-import {
-    createSchema,
-    getDailyTotals,
-    getTimings,
-    insertSummaryForDay,
-    insertTimings,
-} from "./TimingDb.ts";
+import { createSchema, insertSummaryForDay, insertTimings } from "./TimingDb.ts";
 import { createDatabase } from "./utils/Database.ts";
 
 const DATABASE_PATH = "__TAURI__" in window ? "projects.db" : "file:local?vfs=kvvfs";
 const INSERT_MOCK_DATA = "__TAURI__" in window ? false : true;
+const HAS_DATABASE_ALREADY = Object.keys(localStorage).some((key) => key.startsWith("kvvfs"));
 
 // Floating point number generator from: https://github.com/bryc/code/blob/master/jshash/PRNGs.md
 function xoshiro128p(a: number, b: number, c: number, d: number) {
@@ -84,12 +79,7 @@ export function createTimingDatabase() {
             const offsetEnd = new Date();
             const offsetStart = new Date(offsetEnd.getTime() - 30 * 7 * 24 * 3600 * 1000);
 
-            // Determine if any of the tables: summary, timing, client or project non-empty
-            const counter = await db.select<{ count: number }>(
-                "SELECT COUNT(*) AS count FROM summary, timing, client, project"
-            );
-
-            if (counter[0].count) {
+            if (HAS_DATABASE_ALREADY) {
                 console.log("Database already contains data, skipping mock data generation");
                 return;
             }
