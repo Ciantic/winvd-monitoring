@@ -119,7 +119,7 @@ export async function createSchema(db: IDatabase) {
 
 export async function getTimings(
     db: IDatabase,
-    input?: { from?: Date; to?: Date }
+    input?: { from?: Date; to?: Date; client?: string; project?: string }
 ): Promise<Timing[]> {
     const query = sql`
         SELECT
@@ -129,6 +129,8 @@ export async function getTimings(
             client.name as client
         FROM timing, project, client
         WHERE timing.projectId = project.id AND project.clientId = client.id
+        ${sql.if`AND client.name = ${input?.client}`}
+        ${sql.if`AND project.name = ${input?.project}`}
         ${sql.if`AND timing.start >= ${input?.from?.getTime()}`}
         ${sql.if`AND timing.start <= ${input?.to?.getTime()}`}
     `;
