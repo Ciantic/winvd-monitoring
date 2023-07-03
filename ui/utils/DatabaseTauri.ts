@@ -69,6 +69,22 @@ export class DatabaseTauri implements IDatabase {
         return result;
     }
 
+    async *selectYield<T extends Record<string, unknown>>(
+        query: string,
+        bindValues?: unknown[] | undefined
+    ): AsyncGenerator<T, any, unknown> {
+        const result = await invoke<T[]>("plugin:sql|select", {
+            db: await this.load(),
+            query,
+            values: bindValues ?? [],
+        });
+
+        // This isn't streaming, but it's the best we can do for now
+        for (const row of result) {
+            yield row;
+        }
+    }
+
     async close(): Promise<boolean> {
         const success = await invoke<boolean>("plugin:sql|close", {
             db: await this.load(),

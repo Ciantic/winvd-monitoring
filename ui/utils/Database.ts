@@ -15,6 +15,10 @@ export interface IDatabase {
     transaction<T>(fn: () => Promise<T>): Promise<T>;
     execute(query: string, bindValues?: unknown[]): Promise<QueryResult>;
     select<T extends Record<string, unknown>>(query: string, bindValues?: unknown[]): Promise<T[]>;
+    selectYield<T extends Record<string, unknown>>(
+        query: string,
+        bindValues?: unknown[] | undefined
+    ): AsyncGenerator<T>;
     close(): Promise<boolean>;
 }
 

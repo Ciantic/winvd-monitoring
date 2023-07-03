@@ -1,18 +1,40 @@
+import sqlite3InitModule from "npm:@sqlite.org/sqlite-wasm";
 import { IDatabase, QueryResult } from "./Database.ts";
 
-import { QueryParameter } from "https://deno.land/x/sqlite/src/query.ts";
-import { DB } from "https://deno.land/x/sqlite/src/db.ts";
-import { compile } from "https://deno.land/x/sqlite/build/sqlite.js";
-import { open } from "https://deno.land/x/sqlite/browser/mod.ts";
+let csqlite3: any;
+async function getOrCreateSqlite3() {
+    if (!csqlite3) {
+        if (typeof Deno !== "undefined" && "test" in Deno) {
+            csqlite3 = await sqlite3InitModule();
+        } else {
+            csqlite3 = await sqlite3InitModule({
+                locateFile(file: string) {
+                    return "https://cdn.jsdelivr.net/npm/@sqlite.org/sqlite-wasm@3.42.0-build2/sqlite-wasm/jswasm/sqlite3.wasm";
+                },
+            });
+        }
+    }
+    return csqlite3;
+}
 
 export class DatabaseWasm implements IDatabase {
-    private path: string;
-    private db?: DB;
-    private inited = false;
+    private db?: any;
 
     constructor(path: string, private onInit?: (db: IDatabase) => Promise<void>) {
-        this.path = path;
+        if (path !== ":memory:") {
+            throw new Error("Only in-memory databases are supported");
+        }
     }
+
+    private async init() {
+        if (this.db) {
+            return;
+        }
+        const sqlite3 = await getOrCreateSqlite3();
+        this.db = new sqlite3.oo1.DB();
+        await this.onInit?.(this);
+    }
+
     async transaction<T>(fn: () => Promise<T>): Promise<T> {
         await this.execute("BEGIN TRANSACTION");
         let result: T;
@@ -26,64 +48,56 @@ export class DatabaseWasm implements IDatabase {
         return result;
     }
 
-    async init() {
-        if (this.inited) return;
-        this.inited = true;
-
-        if (typeof Deno !== "undefined" && "test" in Deno) {
-            // In deno
-            await compile();
-            this.db = new DB(this.path);
-        } else {
-            // In browser
-            this.db = (await open(this.path)) as any;
-        }
-
-        await this.onInit?.(this);
-    }
-    async execute(query: string, bindValues?: unknown[]): Promise<QueryResult> {
+    async execute(query: string, bindValues?: unknown[] | undefined): Promise<QueryResult> {
         await this.init();
-        if (!this.db) {
-            throw new Error("Database not initialized");
-        }
-        this.db.query(query, bindValues as QueryParameter[]);
-        return Promise.resolve({
-            lastInsertId: this.db.lastInsertRowId,
-            rowsAffected: this.db.totalChanges,
+        this.db.exec({
+            sql: query,
+            bind: bindValues,
+            // returnValue: "resultRows",
         });
+        return {
+            lastInsertId: this.db.selectValue("SELECT last_insert_rowid()"),
+            rowsAffected: this.db.changes(true),
+        };
     }
+
     async select<T extends Record<string, unknown>>(
         query: string,
-        bindValues?: unknown[]
+        bindValues?: unknown[] | undefined
     ): Promise<T[]> {
         await this.init();
-        if (!this.db) {
-            throw new Error("Database not initialized");
-        }
-        return Promise.resolve(this.db.queryEntries<T>(query, bindValues as QueryParameter[]));
+        return await this.db.selectObjects(query, bindValues);
     }
-    async close(): Promise<boolean> {
+
+    async *selectYield<T extends Record<string, unknown>>(
+        query: string,
+        bindValues?: unknown[] | undefined
+    ): AsyncGenerator<T> {
         await this.init();
+
+        // This streams the results
+        const stmt = this.db.prepare(query);
+        stmt.bind(bindValues);
+        while (stmt.step()) {
+            // Passing empty object returns result as object
+            // https://sqlite.org/wasm/doc/tip/api-oo1.md#stmt-get
+            // yield Promise.resolve(stmt.get({}));
+            yield stmt.get({});
+        }
+    }
+
+    // deno-lint-ignore require-await
+    async close(): Promise<boolean> {
         if (!this.db) {
-            throw new Error("Database not initialized");
+            return false;
         }
         this.db.close();
-        return Promise.resolve(true);
+        this.db = undefined;
+        return true;
     }
 
-    async export(): Promise<Uint8Array> {
-        await this.init();
-        if (!this.db) {
-            throw new Error("Database not initialized");
-        }
-        return this.db.serialize();
-    }
-
-    async import(data: Uint8Array): Promise<void> {
-        await this.init();
-        if (!this.db) {
-            throw new Error("Database not initialized");
-        }
-        this.db.deserialize(data);
-    }
+    // https://devblogs.microsoft.com/typescript/announcing-typescript-5-2-beta/#using-declarations-and-explicit-resource-management
+    // [Symbol.dispose]() {
+    //     this.close();
+    // }
 }
