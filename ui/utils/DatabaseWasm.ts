@@ -20,18 +20,14 @@ async function getOrCreateSqlite3() {
 export class DatabaseWasm implements IDatabase {
     private db?: any;
 
-    constructor(path: string, private onInit?: (db: IDatabase) => Promise<void>) {
-        if (path !== ":memory:") {
-            throw new Error("Only in-memory databases are supported");
-        }
-    }
+    constructor(private path: string, private onInit?: (db: IDatabase) => Promise<void>) {}
 
     private async init() {
         if (this.db) {
             return;
         }
         const sqlite3 = await getOrCreateSqlite3();
-        this.db = new sqlite3.oo1.DB();
+        this.db = new sqlite3.oo1.DB(this.path);
         await this.onInit?.(this);
     }
 

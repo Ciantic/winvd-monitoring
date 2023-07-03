@@ -1,4 +1,4 @@
-import { assertEquals } from "https://deno.land/std/testing/asserts.ts";
+import { assertEquals, assertNotEquals } from "https://deno.land/std/testing/asserts.ts";
 import {
     createSchema,
     getDailyTotals,
@@ -66,7 +66,11 @@ Deno.test("TimingDb insert timings, errors", async () => {
     }
     const storedTimings = await getTimings(db);
     assertEquals([], storedTimings);
-    assertEquals(error.message, "NOT NULL constraint failed: client.name");
+    assertEquals(error.name, "SQLite3Error");
+    assertEquals(
+        error.message,
+        "sqlite3 result code 1299: NOT NULL constraint failed: client.name"
+    );
 
     // Ensure no transaction was not left unfinished and try insert again, it should work
 
@@ -113,17 +117,17 @@ Deno.test("TimingDb daily totals", async () => {
 
     assertEquals(storedTimings, [
         {
-            day: new Date("2022-01-01 00:00"),
-            hours: 1,
-            project: "VR Glasses",
-            client: "Mega corp",
-            summary: "",
-        },
-        {
             day: new Date("2020-01-01 00:00"),
             hours: 2,
             project: "Secret Acme Car",
             client: "Acme Inc",
+            summary: "",
+        },
+        {
+            day: new Date("2022-01-01 00:00"),
+            hours: 1,
+            project: "VR Glasses",
+            client: "Mega corp",
             summary: "",
         },
     ]);
@@ -149,7 +153,7 @@ Deno.test("TimingDb insert and get summary", async () => {
     assertEquals(summaries, [storedSummary]);
 });
 
-Deno.test("TimingDb insert daily summaries and get them", async () => {
+Deno.test("TimingDb dailyTotals", async () => {
     const db = await testDb();
 
     await insertTimings(db, [
@@ -164,6 +168,12 @@ Deno.test("TimingDb insert daily summaries and get them", async () => {
             project: "Secret Acme Car",
             start: new Date("2020-07-02 11:00"),
             end: new Date("2020-07-02 12:00"),
+        },
+        {
+            client: "Acme Inc",
+            project: "Secret Acme Car",
+            start: new Date("2020-07-02 15:00"),
+            end: new Date("2020-07-02 16:00"),
         },
         {
             client: "Acme Inc",
@@ -197,17 +207,17 @@ Deno.test("TimingDb insert daily summaries and get them", async () => {
             archived: false,
             client: "Acme Inc",
             project: "Secret Acme Car",
-            start: new Date("2020-07-01 00:00"),
-            end: new Date("2020-07-02 00:00"),
-            text: "Some text for a summary of days work",
+            start: new Date("2020-07-02 00:00"),
+            end: new Date("2020-07-03 00:00"),
+            text: "Another text for a summary of days work",
         },
         {
             archived: false,
             client: "Acme Inc",
             project: "Secret Acme Car",
-            start: new Date("2020-07-02 00:00"),
-            end: new Date("2020-07-03 00:00"),
-            text: "Another text for a summary of days work",
+            start: new Date("2020-07-01 00:00"),
+            end: new Date("2020-07-02 00:00"),
+            text: "Some text for a summary of days work",
         },
     ]);
 
@@ -215,20 +225,28 @@ Deno.test("TimingDb insert daily summaries and get them", async () => {
         from: new Date("2020-07-01 00:00"),
         to: new Date("2025-01-02 00:00"),
     });
-    // assertEquals(totals, [
-    //     {
-    //         client: "Acme Inc",
-    //         day: new Date("2020-07-01 00:00"),
-    //         hours: 1,
-    //         project: "Secret Acme Car",
-    //         summary: "Some text for a summary of days work",
-    //     },
-    //     {
-    //         client: "Acme Inc",
-    //         day: new Date("2020-07-02 00:00"),
-    //         hours: 2,
-    //         project: "Secret Acme Car",
-    //         summary: "Another text for a summary of days work",
-    //     },
-    // ]);
+
+    assertEquals(totals, [
+        {
+            client: "Acme Inc",
+            day: new Date("2020-07-01 00:00"),
+            hours: 1,
+            project: "Secret Acme Car",
+            summary: "Some text for a summary of days work",
+        },
+        {
+            client: "Acme Inc",
+            day: new Date("2020-07-02 00:00"),
+            hours: 2,
+            project: "Secret Acme Car",
+            summary: "Another text for a summary of days work",
+        },
+        {
+            client: "Acme Inc",
+            day: new Date("2020-07-03 00:00"),
+            hours: 1,
+            project: "Secret Acme Car",
+            summary: "",
+        },
+    ]);
 });

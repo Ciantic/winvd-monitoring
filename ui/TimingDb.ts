@@ -198,8 +198,15 @@ export async function getDailyTotals(
         project?: string;
     }
 ): Promise<DailyTotalSummary[]> {
+    // Measure time
+    const start = Date.now();
     const timings = await getTimings(db, input);
+    console.log(`getTimings took ${Date.now() - start}ms`);
+
+    // Measure time
+    const start2 = Date.now();
     const summaries = await getSummaries(db, input);
+    console.log(`getSummaries took ${Date.now() - start2}ms`);
 
     // Index summaries by start date
     const summariesByDayClientProject = summaries.reduce((summariesByDay, summary) => {
@@ -215,8 +222,10 @@ export async function getDailyTotals(
         const hours = (timing.end.getTime() - timing.start.getTime()) / 3600000;
         const key = `${day}-${timing.client}-${timing.project}`;
         if (!totals[key]) {
+            const day = new Date(timing.start);
+            day.setHours(0, 0, 0, 0);
             totals[key] = {
-                day: timing.start,
+                day: day,
                 hours: 0,
                 client: timing.client,
                 project: timing.project,
@@ -226,6 +235,9 @@ export async function getDailyTotals(
         totals[key].hours += hours;
         return totals;
     }, {} as Record<string, DailyTotalSummary>);
+
+    // Total time
+    console.log(`getDailyTotals took ${Date.now() - start}ms`);
 
     return Object.values(totals);
 }
