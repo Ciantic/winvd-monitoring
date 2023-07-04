@@ -48,6 +48,17 @@
                 "reveal": "never",
                 "focus": false
             }
+        },
+        {
+            "label": "deno sass stats",
+            "type": "shell",
+            "command": "deno run -A deno-build-scss.ts \"./html/stats.scss\" \"stats.css\"",
+            // "problemMatcher": ["$lessc"],
+            "presentation": {
+                "echo": true,
+                "reveal": "never",
+                "focus": false
+            }
         }
         // {
         //     "label": "deno sass",

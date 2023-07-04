@@ -10,7 +10,7 @@ import {
     ColumnDef,
 } from "npm:@tanstack/solid-table";
 
-import { Lang } from "../Lang.ts";
+import { Lang, formatDate } from "../Lang.ts";
 import { getDailyTotals, getSummaries, insertSummaryForDay } from "../TimingDb.ts";
 import { createTimingDatabase } from "../TimingDbCreator.ts";
 
@@ -27,7 +27,8 @@ function StatsTable({ data }: { data: Resource<Stats[]> }) {
     const columns = [
         columnHelper.accessor("day", {
             header: Lang.day,
-            cell: (cell) => cell.getValue().toLocaleDateString(),
+            // Finnish date format
+            cell: (cell) => formatDate(cell.getValue()),
         }),
         columnHelper.accessor("client", {
             header: Lang.client,
@@ -37,6 +38,10 @@ function StatsTable({ data }: { data: Resource<Stats[]> }) {
         }),
         columnHelper.accessor("hours", {
             header: Lang.hours,
+            cell: (cell) => {
+                const value = cell.getValue();
+                return Math.round(value * 10) / 10;
+            },
         }),
         columnHelper.accessor((row) => row, {
             header: Lang.summary,
@@ -44,6 +49,7 @@ function StatsTable({ data }: { data: Resource<Stats[]> }) {
                 const value = cell.getValue();
                 return (
                     <input
+                        class="form-control"
                         type="text"
                         value={value.summary}
                         onInput={(e) => {
@@ -68,7 +74,7 @@ function StatsTable({ data }: { data: Resource<Stats[]> }) {
         });
 
     return (
-        <table>
+        <table class="table">
             <thead>
                 <For each={table().getHeaderGroups()}>
                     {(headerGroup) => (
@@ -134,15 +140,31 @@ export function Stats() {
     const daysAgo120 = new Date();
     daysAgo120.setDate(daysAgo120.getDate() - 120);
 
-    const [getData] = createResource(
-        getDailyTotals.bind(null, timingDb, {
+    async function fetchData() {
+        // Simulate by waiting
+        // await new Promise((resolve) => setTimeout(resolve, 1000));
+
+        return await getDailyTotals(timingDb, {
             from: daysAgo120,
             to: new Date(),
-        })
-    );
+        });
+    }
+
+    const [getData] = createResource(fetchData);
+
     return (
         <div>
-            <Suspense fallback={<div>Loading...</div>}>
+            <Suspense
+                fallback={
+                    <div class="loading-fullscreen">
+                        <div class="spinner">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                }
+            >
                 <StatsTable data={getData} />
             </Suspense>
         </div>

@@ -38,23 +38,36 @@ Deno.test("TimingDb insert timings", async () => {
     ];
     await insertTimings(db, timings);
     const storedTimings = await getTimings(db);
-    assertEquals(timings, storedTimings);
+    assertEquals(storedTimings, [
+        {
+            client: "Mega corp",
+            project: "VR Glasses",
+            start: new Date("2022-01-01 00:00"),
+            end: new Date("2022-01-02 00:00"),
+        },
+        {
+            client: "Acme Inc",
+            project: "Secret Acme Car",
+            start: new Date("2020-01-01 00:00"),
+            end: new Date("2020-01-02 00:00"),
+        },
+    ]);
 });
 
 Deno.test("TimingDb insert timings, errors", async () => {
     const db = await testDb();
     const timings = [
         {
-            client: null as any,
-            project: "Secret Acme Car",
-            start: new Date("2020-01-01 00:00"),
-            end: new Date("2020-01-02 00:00"),
-        },
-        {
             client: "Mega corp",
             project: "VR Glasses",
             start: new Date("2022-01-01 00:00"),
             end: new Date("2022-01-02 00:00"),
+        },
+        {
+            client: null as any,
+            project: "Secret Acme Car",
+            start: new Date("2020-01-01 00:00"),
+            end: new Date("2020-01-02 00:00"),
         },
     ];
 
@@ -92,10 +105,10 @@ Deno.test("TimingDb daily totals", async () => {
 
     await insertTimings(db, [
         {
-            client: "Acme Inc",
-            project: "Secret Acme Car",
-            start: new Date("2020-01-01 17:00"),
-            end: new Date("2020-01-01 18:00"),
+            client: "Mega corp",
+            project: "VR Glasses",
+            start: new Date("2022-01-01 11:00"),
+            end: new Date("2022-01-01 12:00"),
         },
         {
             client: "Acme Inc",
@@ -104,10 +117,10 @@ Deno.test("TimingDb daily totals", async () => {
             end: new Date("2020-01-01 13:00"),
         },
         {
-            client: "Mega corp",
-            project: "VR Glasses",
-            start: new Date("2022-01-01 11:00"),
-            end: new Date("2022-01-01 12:00"),
+            client: "Acme Inc",
+            project: "Secret Acme Car",
+            start: new Date("2020-01-01 17:00"),
+            end: new Date("2020-01-01 18:00"),
         },
     ]);
     const storedTimings = await getDailyTotals(db, {
@@ -117,17 +130,17 @@ Deno.test("TimingDb daily totals", async () => {
 
     assertEquals(storedTimings, [
         {
-            day: new Date("2020-01-01 00:00"),
-            hours: 2,
-            project: "Secret Acme Car",
-            client: "Acme Inc",
-            summary: "",
-        },
-        {
             day: new Date("2022-01-01 00:00"),
             hours: 1,
             project: "VR Glasses",
             client: "Mega corp",
+            summary: "",
+        },
+        {
+            day: new Date("2020-01-01 00:00"),
+            hours: 2,
+            project: "Secret Acme Car",
+            client: "Acme Inc",
             summary: "",
         },
     ]);
@@ -229,10 +242,10 @@ Deno.test("TimingDb dailyTotals", async () => {
     assertEquals(totals, [
         {
             client: "Acme Inc",
-            day: new Date("2020-07-01 00:00"),
+            day: new Date("2020-07-03 00:00"),
             hours: 1,
             project: "Secret Acme Car",
-            summary: "Some text for a summary of days work",
+            summary: "",
         },
         {
             client: "Acme Inc",
@@ -243,10 +256,10 @@ Deno.test("TimingDb dailyTotals", async () => {
         },
         {
             client: "Acme Inc",
-            day: new Date("2020-07-03 00:00"),
+            day: new Date("2020-07-01 00:00"),
             hours: 1,
             project: "Secret Acme Car",
-            summary: "",
+            summary: "Some text for a summary of days work",
         },
     ]);
 });

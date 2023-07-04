@@ -133,6 +133,7 @@ export async function getTimings(
         ${sql.if`AND project.name = ${input?.project}`}
         ${sql.if`AND timing.start >= ${input?.from?.getTime()}`}
         ${sql.if`AND timing.start <= ${input?.to?.getTime()}`}
+        ORDER BY timing.start DESC;
     `;
 
     const rows = await db.select<{

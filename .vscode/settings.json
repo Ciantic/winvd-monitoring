@@ -7,6 +7,7 @@
     "triggerTaskOnSave.tasks": {
         "deno bundle": ["**/*.ts", "**/*.tsx"],
         "deno bundle stats": ["**/*.ts", "**/*.tsx"],
-        "deno sass": ["**/*.scss"]
+        "deno sass": ["**/*.scss"],
+        "deno sass stats": ["**/*.scss"]
     }
 }
