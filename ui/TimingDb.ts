@@ -215,10 +215,8 @@ export async function getDailyTotals(
         project: input.project,
     };
 
-    const timings = await getTimings(db, inputMidnights);
+    // Get and index summaries by start date, client and project
     const summaries = await getSummaries(db, inputMidnights);
-
-    // Index summaries by start date
     const summariesByDayClientProject = summaries.reduce((summariesByDay, summary) => {
         const day = localISO8601Date(summary.start);
         const key = `${day}-${summary.client}-${summary.project}`;
@@ -226,27 +224,39 @@ export async function getDailyTotals(
         return summariesByDay;
     }, {} as Record<string, Summary>);
 
-    // Sum all start and end times for each day
-    const totals = timings.reduce((totals, timing) => {
-        const day = localISO8601Date(timing.start);
-        const hours = (timing.end.getTime() - timing.start.getTime()) / 3600000;
-        const key = `${day}-${timing.client}-${timing.project}`;
-        if (!totals[key]) {
-            const day = new Date(timing.start);
-            day.setHours(0, 0, 0, 0);
-            totals[key] = {
-                day: day,
-                hours: 0,
-                client: timing.client,
-                project: timing.project,
-                summary: summariesByDayClientProject[key]?.text || "",
-            };
-        }
-        totals[key].hours += hours;
-        return totals;
-    }, {} as Record<string, DailyTotalSummary>);
+    const query = sql`
+        SELECT strftime('%Y-%m-%d', CAST (start AS REAL) / 1000, 'unixepoch', 'localtime') AS day,
+            CAST (SUM([end] - start) AS REAL) / 3600000 AS hours,
+            client.name AS client,
+            project.name AS project
+        FROM timing,
+            project,
+            client
+        WHERE 1=1        
+            AND timing.projectId = project.id
+            AND project.clientId = client.id
+            AND timing.start >= ${from.getTime()}
+            AND timing.start <= ${to.getTime()}
+            ${sql.if`AND client.name LIKE ${input?.client ? `${input.client}%` : undefined}`}
+            ${sql.if`AND project.name LIKE ${input?.project ? `${input.project}%` : undefined}`}
+        GROUP BY timing.projectId, day
+        ORDER BY start DESC
+    `;
 
-    return Object.values(totals);
+    const rows = await db.select<{
+        day: string;
+        hours: number;
+        client: string;
+        project: string;
+    }>(query.sql, query.params);
+
+    return rows.map((row) => ({
+        day: new Date(row.day + " 00:00:00"),
+        hours: row.hours,
+        client: row.client,
+        project: row.project,
+        summary: summariesByDayClientProject[`${row.day}-${row.client}-${row.project}`]?.text || "",
+    }));
 }
 
 // Helper function to get or create the client id from the client name
@@ -369,8 +379,8 @@ export async function getSummaries(
             summary.projectId = project.id 
             AND project.clientId = client.id
             AND summary.start BETWEEN ${input.from.getTime()} AND ${input.to.getTime()}
-            ${sql.if`AND client.name = ${input?.client}`}
-            ${sql.if`AND project.name = ${input?.project}`}
+            ${sql.if`AND client.name LIKE ${input?.client ? `${input.client}%` : undefined}`}
+            ${sql.if`AND project.name LIKE ${input?.project ? `${input.project}%` : undefined}`}
             ${sql.if`AND summary.archived = ${input?.archived}`}
         ORDER BY start DESC
     `;

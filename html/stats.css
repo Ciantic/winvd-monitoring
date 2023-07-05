@@ -3,6 +3,24 @@
 .table td {
   vertical-align: middle;
 }
+.table input {
+  width: 100% !important;
+}
+.table .day {
+  width: 8rem;
+}
+.table .client {
+  width: 20%;
+}
+.table .project {
+  width: 20%;
+}
+.table .hours {
+  width: 5rem;
+}
+.table .sum {
+  width: 8rem;
+}
 .loading-fullscreen {
   position: fixed;
   top: 0;
@@ -10,7 +28,7 @@
   z-index: 9999;
   width: 100%;
   height: 100%;
-  background: var(--bs-table-bg);
+  pointer-events: none;
 }
 .loading-fullscreen > * {
   position: absolute;

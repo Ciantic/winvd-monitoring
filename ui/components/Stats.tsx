@@ -1,14 +1,17 @@
 /** @jsxImportSource npm:solid-js */
 /// <reference lib="dom" />
 
-import { For, Show, createResource, Suspense, Resource } from "npm:solid-js";
 import {
-    createSolidTable,
-    flexRender,
-    createColumnHelper,
-    getCoreRowModel,
-    ColumnDef,
-} from "npm:@tanstack/solid-table";
+    For,
+    Show,
+    createResource,
+    Suspense,
+    Resource,
+    Switch,
+    Match,
+    createSignal,
+    createMemo,
+} from "npm:solid-js";
 
 import { Lang, formatDate } from "../Lang.ts";
 import { getDailyTotals, getSummaries, insertSummaryForDay } from "../TimingDb.ts";
@@ -22,151 +25,238 @@ type Stats = {
     summary: string;
 };
 
-function StatsTable({ data }: { data: Resource<Stats[]> }) {
-    const columnHelper = createColumnHelper<Stats>();
-    const columns = [
-        columnHelper.accessor("day", {
-            header: Lang.day,
-            // Finnish date format
-            cell: (cell) => formatDate(cell.getValue()),
-        }),
-        columnHelper.accessor("client", {
-            header: Lang.client,
-        }),
-        columnHelper.accessor("project", {
-            header: Lang.project,
-        }),
-        columnHelper.accessor("hours", {
-            header: Lang.hours,
-            cell: (cell) => {
-                const value = cell.getValue();
-                return Math.round(value * 10) / 10;
-            },
-        }),
-        columnHelper.accessor((row) => row, {
-            header: Lang.summary,
-            cell: (cell) => {
-                const value = cell.getValue();
-                return (
-                    <input
-                        class="form-control"
-                        type="text"
-                        value={value.summary}
-                        onInput={(e) => {
-                            insertSummaryForDay(timingDb, {
-                                day: value.day,
-                                summary: e.currentTarget.value,
-                                client: value.client,
-                                project: value.project,
-                            });
-                        }}
-                    />
-                );
-            },
-        }),
-    ];
-
-    const table = () =>
-        createSolidTable<Stats>({
-            columns,
-            data: data() || [],
-            getCoreRowModel: getCoreRowModel(),
-        });
-
-    return (
-        <table class="table">
-            <thead>
-                <For each={table().getHeaderGroups()}>
-                    {(headerGroup) => (
-                        <tr>
-                            <For each={headerGroup.headers}>
-                                {(header) => (
-                                    <th>
-                                        <Show when={!header.isPlaceholder}>
-                                            {flexRender(
-                                                header.column.columnDef.header,
-                                                header.getContext()
-                                            )}
-                                        </Show>
-                                    </th>
-                                )}
-                            </For>
-                        </tr>
-                    )}
-                </For>
-            </thead>
-            <tbody>
-                <For each={table().getRowModel().rows}>
-                    {(row) => (
-                        <tr>
-                            <For each={row.getVisibleCells()}>
-                                {(cell) => (
-                                    <td>
-                                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                                    </td>
-                                )}
-                            </For>
-                        </tr>
-                    )}
-                </For>
-            </tbody>
-            <tfoot>
-                <For each={table().getFooterGroups()}>
-                    {(footerGroup) => (
-                        <tr>
-                            <For each={footerGroup.headers}>
-                                {(header) => (
-                                    <th>
-                                        <Show when={!header.isPlaceholder}>
-                                            {flexRender(
-                                                header.column.columnDef.footer,
-                                                header.getContext()
-                                            )}
-                                        </Show>
-                                    </th>
-                                )}
-                            </For>
-                        </tr>
-                    )}
-                </For>
-            </tfoot>
-        </table>
-    );
-}
-
 const timingDb = createTimingDatabase();
 
+function parseFinnishDate(date: string): Date | undefined {
+    // If date in format "jj.nn.(yyyy)?"
+    const match = date.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})?$/);
+    if (!match) {
+        return undefined;
+    }
+    const day = parseInt(match[1]);
+    const month = parseInt(match[2]) - 1;
+    const maybeYear = match[3];
+    const d = new Date();
+    d.setDate(day);
+    d.setMonth(month);
+    if (maybeYear) {
+        d.setFullYear(parseInt(maybeYear));
+    }
+    return d;
+}
+
+function parseDateRange(range: string): { from: Date; to: Date } | undefined {
+    {
+        const finnishDate = parseFinnishDate(range);
+        if (finnishDate) {
+            const to = new Date();
+            const from = new Date(finnishDate);
+            return { from, to };
+        }
+    }
+    {
+        // If the range is "n months" or "n weeks" or "n days" or "n hours" or "n minutes"
+        const match = range.match(/^(\d+) (months?|weeks?|days?)$/);
+        if (match) {
+            const amount = parseInt(match[1]);
+            const unit = match[2];
+            const to = new Date();
+            const from = new Date(to);
+            switch (unit) {
+                case "month":
+                case "months":
+                    from.setMonth(from.getMonth() - amount);
+                    break;
+                case "week":
+                case "weeks":
+                    from.setDate(from.getDate() - amount * 7);
+                    break;
+                case "day":
+                case "days":
+                    from.setDate(from.getDate() - amount);
+                    break;
+            }
+            return { from, to };
+        }
+    }
+    return undefined;
+}
+
 export function Stats() {
+    const [sigma, setSigma] = createSignal("x");
+    const [dayFilter, setDayFilter] = createSignal("1 months");
+    const [clientFilter, setClientFilter] = createSignal("");
+    const [projectFilter, setProjectFilter] = createSignal("");
+    const parsedDateRange = createMemo(() => parseDateRange(dayFilter()));
+
+    const textFunc = createMemo(() => (x: number) => {
+        try {
+            return Math.round(new Function("x", "return " + sigma())(x) * 100) / 100;
+        } catch (e) {
+            return "Error";
+        }
+    });
+
     const daysAgo120 = new Date();
     daysAgo120.setDate(daysAgo120.getDate() - 120);
 
-    async function fetchData() {
+    async function fetchData(props: { from?: Date; to?: Date; client: string; project: string }) {
         // Simulate by waiting
         // await new Promise((resolve) => setTimeout(resolve, 1000));
+        if (!props.from || !props.to) {
+            return [];
+        }
 
         return await getDailyTotals(timingDb, {
-            from: daysAgo120,
-            to: new Date(),
+            from: props.from,
+            to: props.to,
+            client: props.client ? props.client : undefined,
+            project: props.project ? props.project : undefined,
         });
     }
 
-    const [getData] = createResource(fetchData);
+    const [getData] = createResource(
+        () => ({
+            ...parsedDateRange(),
+            client: clientFilter(),
+            project: projectFilter(),
+        }),
+        fetchData
+    );
+
+    const dataFiltered = createMemo(() => {
+        const data = getData();
+        const parsedDateRange = parseDateRange(dayFilter());
+        const filteredData = data?.filter((x) => {
+            if (parsedDateRange) {
+                if (x.day < parsedDateRange[0] || x.day > parsedDateRange[1]) {
+                    return false;
+                }
+            }
+            return true;
+        });
+        return {
+            totalHours: filteredData?.reduce((acc, x) => acc + x.hours, 0),
+            rows: filteredData,
+        };
+    });
 
     return (
         <div>
-            <Suspense
-                fallback={
-                    <div class="loading-fullscreen">
-                        <div class="spinner">
-                            <div class="spinner-border text-primary" role="status">
-                                <span class="visually-hidden">Loading...</span>
-                            </div>
-                        </div>
-                    </div>
-                }
-            >
-                <StatsTable data={getData} />
-            </Suspense>
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th class="day">{Lang.day}</th>
+                        <th class="client">{Lang.client}</th>
+                        <th class="project">{Lang.project}</th>
+                        <th class="hours">{Lang.hours}</th>
+                        <th class="sum">{Lang.sum}</th>
+                        <th class="summary">{Lang.summary}</th>
+                    </tr>
+                    <tr>
+                        <th>
+                            <input
+                                class="form-control"
+                                type="text"
+                                value={dayFilter()}
+                                onInput={(e) => {
+                                    setDayFilter(e.currentTarget.value);
+                                }}
+                            />
+                        </th>
+                        <th>
+                            <input
+                                class="form-control"
+                                type="text"
+                                value={clientFilter()}
+                                onInput={(e) => {
+                                    setClientFilter(e.currentTarget.value);
+                                }}
+                            />
+                        </th>
+                        <th>
+                            <input
+                                class="form-control"
+                                type="text"
+                                value={projectFilter()}
+                                onInput={(e) => {
+                                    setProjectFilter(e.currentTarget.value);
+                                }}
+                            />
+                        </th>
+                        <th>
+                            <input class="form-control" type="text" />
+                        </th>
+                        <th>
+                            <input
+                                class="form-control"
+                                type="text"
+                                value={sigma()}
+                                onInput={(e) => {
+                                    setSigma(e.currentTarget.value);
+                                }}
+                            />
+                        </th>
+                        <th>
+                            <input class="form-control" type="text" />
+                        </th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <Suspense
+                        fallback={
+                            <tr>
+                                <td colspan="6">
+                                    <div class="loading-fullscreen">
+                                        <div class="spinner">
+                                            <div class="spinner-border text-primary" role="status">
+                                                <span class="visually-hidden">Loading...</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    >
+                        <For each={dataFiltered().rows}>
+                            {(row) => (
+                                <tr>
+                                    <td>{formatDate(row.day)}</td>
+                                    <td>{row.client}</td>
+                                    <td>{row.project}</td>
+                                    <td>{Math.round(row.hours * 10) / 10}</td>
+                                    <td>{textFunc()(row.hours)}</td>
+                                    <td>
+                                        <input
+                                            class="form-control"
+                                            type="text"
+                                            value={row.summary}
+                                            onInput={(e) => {
+                                                insertSummaryForDay(timingDb, {
+                                                    day: row.day,
+                                                    summary: e.currentTarget.value,
+                                                    client: row.client,
+                                                    project: row.project,
+                                                });
+                                            }}
+                                        />
+                                    </td>
+                                </tr>
+                            )}
+                        </For>
+                    </Suspense>
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <th class="day"></th>
+                        <th class="client"></th>
+                        <th class="project"></th>
+                        <th class="hours">{dataFiltered().totalHours}</th>
+                        <th class="sum"></th>
+                        <th class="summary"></th>
+                    </tr>
+                </tfoot>
+            </table>
         </div>
     );
 }

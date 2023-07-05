@@ -6,6 +6,8 @@ export const Lang = {
     thisWeek: "This Week",
     eightWeek: "8 weeks",
     hours: "Hours",
+    sum: "𝑓(x)=",
+    price: "Price",
     client: "Client",
     project: "Project",
     day: "Day",
