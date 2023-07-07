@@ -3,8 +3,11 @@
 .table td {
   vertical-align: middle;
 }
-.table input {
+.table input[type=text] {
   width: 100% !important;
+}
+.table .cb {
+  width: 2rem;
 }
 .table .day {
   width: 8rem;

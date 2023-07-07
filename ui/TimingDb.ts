@@ -237,8 +237,8 @@ export async function getDailyTotals(
             AND project.clientId = client.id
             AND timing.start >= ${from.getTime()}
             AND timing.start <= ${to.getTime()}
-            ${sql.if`AND client.name LIKE ${input?.client ? `${input.client}%` : undefined}`}
-            ${sql.if`AND project.name LIKE ${input?.project ? `${input.project}%` : undefined}`}
+            ${sql.if`AND client.name LIKE ${input?.client ? `${input.client}` : undefined}`}
+            ${sql.if`AND project.name LIKE ${input?.project ? `${input.project}` : undefined}`}
         GROUP BY timing.projectId, day
         ORDER BY start DESC
     `;
@@ -379,8 +379,8 @@ export async function getSummaries(
             summary.projectId = project.id 
             AND project.clientId = client.id
             AND summary.start BETWEEN ${input.from.getTime()} AND ${input.to.getTime()}
-            ${sql.if`AND client.name LIKE ${input?.client ? `${input.client}%` : undefined}`}
-            ${sql.if`AND project.name LIKE ${input?.project ? `${input.project}%` : undefined}`}
+            ${sql.if`AND client.name LIKE ${input?.client ? `${input.client}` : undefined}`}
+            ${sql.if`AND project.name LIKE ${input?.project ? `${input.project}` : undefined}`}
             ${sql.if`AND summary.archived = ${input?.archived}`}
         ORDER BY start DESC
     `;

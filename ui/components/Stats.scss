@@ -3,10 +3,12 @@
     td {
         vertical-align: middle;
     }
-    input {
+    input[type="text"] {
         width: 100% !important;
     }
-
+    .cb {
+        width: 2rem;
+    }
     .day {
         width: 8rem;
     }
