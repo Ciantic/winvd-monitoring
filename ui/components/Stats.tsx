@@ -233,15 +233,38 @@ function createCheckboxManager(rows: () => { id: string }[]) {
 }
 
 export function Stats() {
-    const [fxExpr, setFxExpr] = createSignal("x");
+    const [fxExpr, setFxExpr] = createSignal("r(x*1.25)");
+    const [hoursFilter, setHoursFilter] = createSignal("x>0.01");
     const [dayFilter, setDayFilter] = createSignal("1 months");
     const [clientFilter, setClientFilter] = createSignal("");
     const [projectFilter, setProjectFilter] = createSignal("");
     const parsedDateRange = createMemo(() => parseDateRange(dayFilter()));
 
     const fxFunc = createMemo(() => (x: number) => {
+        const r = (x: number, n = 1) => {
+            const factor = Math.pow(10, n);
+            return Math.round(x * factor) / factor;
+        };
+        const c = (x: number) => Math.ceil(x);
+        const f = (x: number) => Math.floor(x);
+
         try {
-            return Math.round(new Function("x", "return " + fxExpr())(x) * 100) / 100;
+            return (
+                Math.round(
+                    new Function("x", "r", "c", "f", "return " + fxExpr())(x, r, c, f) * 100
+                ) / 100
+            );
+        } catch (e) {
+            return "Error";
+        }
+    });
+
+    const hoursFilterFunc = createMemo(() => (x: number): boolean | string => {
+        if (hoursFilter() === "") {
+            return true;
+        }
+        try {
+            return new Function("x", "return " + hoursFilter())(x);
         } catch (e) {
             return "Error";
         }
@@ -258,16 +281,22 @@ export function Stats() {
 
     const dataProcessed = createMemo(() => {
         const data = getData();
-
-        return {
-            isLoading: data === undefined,
-            totalHours: data?.reduce((acc, x) => acc + x.hours, 0),
-            rows:
-                data?.map((x) => ({
+        const rows =
+            data
+                ?.map((x) => ({
                     ...x,
                     id: x.day.toISOString() + x.client + x.project,
                     fx: fxFunc()(x.hours),
-                })) ?? [],
+                }))
+                .filter((f) => {
+                    const hoursFilterResult = hoursFilterFunc()(f.hours);
+                    return hoursFilterResult === true;
+                }) ?? [];
+        return {
+            isLoading: data === undefined,
+            totalHours: rows.reduce((acc, x) => acc + x.hours, 0),
+            totalFx: rows.reduce((acc, x) => acc + (typeof x.fx === "number" ? x.fx : 0), 0),
+            rows,
         };
     });
 
@@ -284,10 +313,10 @@ export function Stats() {
                         <th class="client">{Lang.client}</th>
                         <th class="project">{Lang.project}</th>
                         <th class="hours">{Lang.hours}</th>
-                        <th class="sum">{Lang.sum}</th>
+                        <th class="fx">{Lang.sum}</th>
                         <th class="summary">{Lang.summary}</th>
                     </tr>
-                    <tr>
+                    <tr class="filter-row">
                         <th class="cb">
                             <input
                                 class="form-check-input"
@@ -296,7 +325,7 @@ export function Stats() {
                                 onChange={onChangeAllChecked}
                             />
                         </th>
-                        <th>
+                        <th class="day">
                             <input
                                 class="form-control"
                                 type="text"
@@ -306,7 +335,7 @@ export function Stats() {
                                 }}
                             />
                         </th>
-                        <th>
+                        <th class="client">
                             <input
                                 class="form-control"
                                 type="text"
@@ -316,7 +345,7 @@ export function Stats() {
                                 }}
                             />
                         </th>
-                        <th>
+                        <th class="project">
                             <input
                                 class="form-control"
                                 type="text"
@@ -326,10 +355,17 @@ export function Stats() {
                                 }}
                             />
                         </th>
-                        <th>
-                            <input class="form-control" type="text" />
+                        <th class="hours">
+                            <input
+                                class="form-control"
+                                type="text"
+                                value={hoursFilter()}
+                                onInput={(e) => {
+                                    setHoursFilter(e.currentTarget.value);
+                                }}
+                            />
                         </th>
-                        <th>
+                        <th class="fx">
                             <input
                                 class="form-control"
                                 type="text"
@@ -339,7 +375,7 @@ export function Stats() {
                                 }}
                             />
                         </th>
-                        <th></th>
+                        <th class="summary"></th>
                     </tr>
                 </thead>
                 <tbody>
@@ -361,7 +397,7 @@ export function Stats() {
                         <For each={dataProcessed().rows}>
                             {(row) => (
                                 <tr>
-                                    <td>
+                                    <td class="cb">
                                         <input
                                             class="form-check-input"
                                             type="checkbox"
@@ -374,12 +410,12 @@ export function Stats() {
                                             }}
                                         />
                                     </td>
-                                    <td>{formatDate(row.day)}</td>
-                                    <td>{row.client}</td>
-                                    <td>{row.project}</td>
-                                    <td>{Math.round(row.hours * 10) / 10}</td>
-                                    <td>{row.fx}</td>
-                                    <td>
+                                    <td class="day">{formatDate(row.day)}</td>
+                                    <td class="client">{row.client}</td>
+                                    <td class="project">{row.project}</td>
+                                    <td class="hours">{Math.round(row.hours * 10) / 10}</td>
+                                    <td class="fx">{row.fx}</td>
+                                    <td class="summary">
                                         <input
                                             class="form-control"
                                             type="text"
@@ -405,8 +441,8 @@ export function Stats() {
                         <th class="day"></th>
                         <th class="client"></th>
                         <th class="project"></th>
-                        <th class="hours">{dataProcessed().totalHours}</th>
-                        <th class="sum"></th>
+                        <th class="hours">{dataProcessed().totalHours?.toFixed(2)}</th>
+                        <th class="fx">{dataProcessed().totalFx?.toFixed(2)}</th>
                         <th class="summary"></th>
                     </tr>
                 </tfoot>

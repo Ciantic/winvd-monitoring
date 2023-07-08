@@ -44,6 +44,11 @@ async function buildTsFile(file: string, outFile: string) {
         bundle: true,
         format: "esm",
         jsx: "automatic",
+        tsconfigRaw: {
+            compilerOptions: {
+                experimentalDecorators: true,
+            },
+        },
         // treeShaking: true,
         // minify: true,
 

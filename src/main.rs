@@ -16,6 +16,12 @@ use windows::Win32::{
 use winvd::get_current_desktop;
 
 #[derive(Clone, serde::Serialize)]
+struct SingleInstance {
+    args: Vec<String>,
+    cwd: String,
+}
+
+#[derive(Clone, serde::Serialize)]
 struct Payload {
     message: String,
 }
@@ -251,7 +257,9 @@ thread_local! {
 }
 
 fn main() {
-    let tray_menu = SystemTrayMenu::new().add_item(CustomMenuItem::new("quit", "Quit"));
+    let tray_menu = SystemTrayMenu::new()
+        .add_item(CustomMenuItem::new("quit", "Quit"))
+        .add_item(CustomMenuItem::new("stats", "Stats"));
     let system_tray = SystemTray::new().with_menu(tray_menu);
 
     tauri::Builder::default()
@@ -262,11 +270,29 @@ fn main() {
             setup_native_shadows(&window);
             Ok(())
         })
+        .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
+            println!("{}, {argv:?}, {cwd}", app.package_info().name);
+
+            app.emit_all("single-instance", SingleInstance { args: argv, cwd })
+                .unwrap();
+        }))
         .plugin(tauri_plugin_sql::Builder::default().build())
         .system_tray(system_tray)
         .on_system_tray_event(|app, event| match event {
             tauri::SystemTrayEvent::MenuItemClick { id, .. } => {
-                if let Some(window) = app.get_window("main") {
+                if id == "stats" {
+                    // Create new window
+                    let handle = app.app_handle();
+                    std::thread::spawn(move || {
+                        let _ = tauri::WindowBuilder::new(
+                            &handle,
+                            "stats",
+                            tauri::WindowUrl::App("stats.html".into()),
+                        )
+                        .inner_size(1024.0, 900.0)
+                        .build();
+                    });
+                } else if let Some(window) = app.get_window("main") {
                     let _ = window.emit("tray_menu_item_click", id);
                 }
             }
@@ -287,6 +313,7 @@ fn main() {
         .run({
             let mut ctx = tauri::generate_context!();
             if cfg!(debug_assertions) {
+                println!("Running in debug mode...");
                 ctx.config_mut().tauri.bundle.identifier =
                     "com.oksidi.WinVDMonitor.Debug".to_string();
             }

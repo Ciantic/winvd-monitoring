@@ -1,30 +1,91 @@
 .table {
+    margin-bottom: 0;
+    > :not(caption) > * > * {
+        padding: 0.15rem 0.25rem;
+    }
+    > * > * > *:first-child {
+        padding-left: 1em;
+    }
+    > * > *:last-child {
+        padding-right: 1em;
+    }
     th,
     td {
         vertical-align: middle;
     }
-    input[type="text"] {
-        width: 100% !important;
-    }
     .cb {
         width: 2rem;
+        padding-right: 0.8rem;
     }
     .day {
-        width: 8rem;
+        width: 7rem;
     }
     .client {
-        width: 20%;
+        width: 15%;
+        min-width: 10rem;
     }
     .project {
         width: 20%;
+        min-width: 10rem;
     }
     .hours {
         width: 5rem;
     }
-    .sum {
-        width: 8rem;
+    .fx {
+        width: 5rem;
     }
     .summary {
+    }
+
+    input[type="text"] {
+        --bs-border-color: transparent;
+        --bs-body-bg: transparent;
+        padding-left: 0;
+        padding-right: 0;
+        &:focus {
+            outline: 0;
+            box-shadow: none;
+            border-color: transparent;
+        }
+    }
+    tbody {
+        tr:last-child {
+            td {
+                border-bottom: 1px solid #000;
+            }
+        }
+    }
+    tfoot tr {
+        border-top-color: #000;
+        th {
+            border-top: 1px solid #000;
+            padding-top: 0.5em;
+            padding-bottom: 0.5em;
+        }
+    }
+    thead tr.filter-row {
+        border-bottom-color: #000;
+        th {
+            padding-top: 0.5em;
+            padding-bottom: 0.5em;
+        }
+        // input[type="text"] {
+        //     --bs-border-color: transparent;
+        //     --bs-body-bg: transparent;
+        //     padding-left: 0;
+        //     padding-right: 0;
+        //     &:focus {
+        //         outline: 0;
+        //         box-shadow: none;
+        //         border-color: transparent;
+        //     }
+        // }
+    }
+    tbody {
+        // input[type="text"] {
+        //     --bs-border-color: transparent;
+        //     --bs-body-bg: transparent;
+        // }
     }
     // tfoot {
     //     > tr {
