@@ -304,149 +304,146 @@ export function Stats() {
         createCheckboxManager(() => dataProcessed().rows);
 
     return (
-        <div>
-            <table class="table table-hover">
-                <thead>
-                    <tr>
-                        <th class="cb"></th>
-                        <th class="day">{Lang.day}</th>
-                        <th class="client">{Lang.client}</th>
-                        <th class="project">{Lang.project}</th>
-                        <th class="hours">{Lang.hours}</th>
-                        <th class="fx">{Lang.sum}</th>
-                        <th class="summary">{Lang.summary}</th>
-                    </tr>
-                    <tr class="filter-row">
-                        <th class="cb">
-                            <input
-                                class="form-check-input"
-                                type="checkbox"
-                                checked={isAllChecked()}
-                                onChange={onChangeAllChecked}
-                            />
-                        </th>
-                        <th class="day">
-                            <input
-                                class="form-control"
-                                type="text"
-                                value={dayFilter()}
-                                onInput={(e) => {
-                                    setDayFilter(e.currentTarget.value);
-                                }}
-                            />
-                        </th>
-                        <th class="client">
-                            <input
-                                class="form-control"
-                                type="text"
-                                value={clientFilter()}
-                                onInput={(e) => {
-                                    setClientFilter(e.currentTarget.value);
-                                }}
-                            />
-                        </th>
-                        <th class="project">
-                            <input
-                                class="form-control"
-                                type="text"
-                                value={projectFilter()}
-                                onInput={(e) => {
-                                    setProjectFilter(e.currentTarget.value);
-                                }}
-                            />
-                        </th>
-                        <th class="hours">
-                            <input
-                                class="form-control"
-                                type="text"
-                                value={hoursFilter()}
-                                onInput={(e) => {
-                                    setHoursFilter(e.currentTarget.value);
-                                }}
-                            />
-                        </th>
-                        <th class="fx">
-                            <input
-                                class="form-control"
-                                type="text"
-                                value={fxExpr()}
-                                onInput={(e) => {
-                                    setFxExpr(e.currentTarget.value);
-                                }}
-                            />
-                        </th>
-                        <th class="summary"></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <Suspense
-                        fallback={
-                            <tr>
-                                <td colspan="7">
-                                    <div class="loading-fullscreen">
-                                        <div class="spinner">
-                                            <div class="spinner-border text-primary" role="status">
-                                                <span class="visually-hidden">Loading...</span>
-                                            </div>
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th class="cb"></th>
+                    <th class="day">{Lang.day}</th>
+                    <th class="client">{Lang.client}</th>
+                    <th class="project">{Lang.project}</th>
+                    <th class="hours">{Lang.hours}</th>
+                    <th class="fx">{Lang.sum}</th>
+                    <th class="summary">{Lang.summary}</th>
+                </tr>
+                <tr class="filter-row">
+                    <th class="cb">
+                        <input
+                            class="form-check-input"
+                            type="checkbox"
+                            checked={isAllChecked()}
+                            onChange={onChangeAllChecked}
+                        />
+                    </th>
+                    <th class="day">
+                        <input
+                            class="form-control"
+                            type="text"
+                            value={dayFilter()}
+                            onInput={(e) => {
+                                setDayFilter(e.currentTarget.value);
+                            }}
+                        />
+                    </th>
+                    <th class="client">
+                        <input
+                            class="form-control"
+                            type="text"
+                            value={clientFilter()}
+                            onInput={(e) => {
+                                setClientFilter(e.currentTarget.value);
+                            }}
+                        />
+                    </th>
+                    <th class="project">
+                        <input
+                            class="form-control"
+                            type="text"
+                            value={projectFilter()}
+                            onInput={(e) => {
+                                setProjectFilter(e.currentTarget.value);
+                            }}
+                        />
+                    </th>
+                    <th class="hours">
+                        <input
+                            class="form-control"
+                            type="text"
+                            value={hoursFilter()}
+                            onInput={(e) => {
+                                setHoursFilter(e.currentTarget.value);
+                            }}
+                        />
+                    </th>
+                    <th class="fx">
+                        <input
+                            class="form-control"
+                            type="text"
+                            value={fxExpr()}
+                            onInput={(e) => {
+                                setFxExpr(e.currentTarget.value);
+                            }}
+                        />
+                    </th>
+                    <th class="summary"></th>
+                </tr>
+            </thead>
+            <tbody>
+                <Suspense
+                    fallback={
+                        <tr>
+                            <td colspan="7">
+                                <div class="loading-fullscreen">
+                                    <div class="spinner">
+                                        <div class="spinner-border text-primary" role="status">
+                                            <span class="visually-hidden">Loading...</span>
                                         </div>
                                     </div>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                >
+                    <For each={dataProcessed().rows}>
+                        {(row) => (
+                            <tr>
+                                <td class="cb">
+                                    <input
+                                        class="form-check-input"
+                                        type="checkbox"
+                                        checked={
+                                            checkedRows().find((x) => x === row.id) !== undefined
+                                        }
+                                        onChange={(e) => {
+                                            onChangeChecked(e, row);
+                                        }}
+                                    />
+                                </td>
+                                <td class="day">{formatDate(row.day)}</td>
+                                <td class="client">{row.client}</td>
+                                <td class="project">{row.project}</td>
+                                <td class="hours">{Math.round(row.hours * 10) / 10}</td>
+                                <td class="fx">{row.fx}</td>
+                                <td class="summary">
+                                    <input
+                                        class="form-control"
+                                        type="text"
+                                        value={row.summary}
+                                        onInput={(e) => {
+                                            insertSummaryForDay(timingDb, {
+                                                day: row.day,
+                                                summary: e.currentTarget.value,
+                                                client: row.client,
+                                                project: row.project,
+                                            });
+                                        }}
+                                    />
                                 </td>
                             </tr>
-                        }
-                    >
-                        <For each={dataProcessed().rows}>
-                            {(row) => (
-                                <tr>
-                                    <td class="cb">
-                                        <input
-                                            class="form-check-input"
-                                            type="checkbox"
-                                            checked={
-                                                checkedRows().find((x) => x === row.id) !==
-                                                undefined
-                                            }
-                                            onChange={(e) => {
-                                                onChangeChecked(e, row);
-                                            }}
-                                        />
-                                    </td>
-                                    <td class="day">{formatDate(row.day)}</td>
-                                    <td class="client">{row.client}</td>
-                                    <td class="project">{row.project}</td>
-                                    <td class="hours">{Math.round(row.hours * 10) / 10}</td>
-                                    <td class="fx">{row.fx}</td>
-                                    <td class="summary">
-                                        <input
-                                            class="form-control"
-                                            type="text"
-                                            value={row.summary}
-                                            onInput={(e) => {
-                                                insertSummaryForDay(timingDb, {
-                                                    day: row.day,
-                                                    summary: e.currentTarget.value,
-                                                    client: row.client,
-                                                    project: row.project,
-                                                });
-                                            }}
-                                        />
-                                    </td>
-                                </tr>
-                            )}
-                        </For>
-                    </Suspense>
-                </tbody>
-                <tfoot>
-                    <tr>
-                        <th class="cb"></th>
-                        <th class="day"></th>
-                        <th class="client"></th>
-                        <th class="project"></th>
-                        <th class="hours">{dataProcessed().totalHours?.toFixed(2)}</th>
-                        <th class="fx">{dataProcessed().totalFx?.toFixed(2)}</th>
-                        <th class="summary"></th>
-                    </tr>
-                </tfoot>
-            </table>
-        </div>
+                        )}
+                    </For>
+                </Suspense>
+            </tbody>
+            <tfoot>
+                <tr>
+                    <th class="cb"></th>
+                    <th class="day"></th>
+                    <th class="client"></th>
+                    <th class="project"></th>
+                    <th class="hours">{dataProcessed().totalHours?.toFixed(2)}</th>
+                    <th class="fx">{dataProcessed().totalFx?.toFixed(2)}</th>
+                    <th class="summary"></th>
+                </tr>
+            </tfoot>
+        </table>
     );
 }

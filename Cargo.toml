@@ -17,8 +17,14 @@ tauri-build = { version = "1.2.1", features = [] }
 [dependencies]
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
-tauri = { version = "1.2.4", features = ["devtools", "icon-ico", "icon-png", "system-tray", "window-all"] }
-winvd = "*"
+tauri = { version = "1.2.4", features = [
+    "devtools",
+    "icon-ico",
+    "icon-png",
+    "system-tray",
+    "window-all",
+] }
+winvd = "0.0.40"
 raw-window-handle = "0.5"
 windows = { version = "0.44", features = [
     # Find WinApi features with searching here https://microsoft.github.io/windows-docs-rs/

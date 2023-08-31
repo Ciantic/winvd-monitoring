@@ -1,21 +1,14 @@
 .table {
     margin-bottom: 0;
-    > :not(caption) > * > * {
-        padding: 0.15rem 0.25rem;
-    }
-    > * > * > *:first-child {
-        padding-left: 1em;
-    }
-    > * > *:last-child {
-        padding-right: 1em;
-    }
     th,
     td {
         vertical-align: middle;
+        padding: 0.15rem 0.25rem;
     }
     .cb {
-        width: 2rem;
+        width: 3rem;
         padding-right: 0.8rem;
+        padding-left: 1rem;
     }
     .day {
         width: 7rem;
@@ -48,45 +41,47 @@
             border-color: transparent;
         }
     }
-    tbody {
-        tr:last-child {
-            td {
-                border-bottom: 1px solid #000;
+
+    tfoot {
+        display: table;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        width: 100%;
+        z-index: 2;
+        tr {
+            border-top-color: #000;
+            th {
+                border-top: 1px solid #000;
+                padding-top: 0.5em;
+                padding-bottom: 0.5em;
             }
         }
     }
-    tfoot tr {
-        border-top-color: #000;
-        th {
-            border-top: 1px solid #000;
-            padding-top: 0.5em;
-            padding-bottom: 0.5em;
+    thead {
+        display: table;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        width: 100%;
+        z-index: 2;
+        tr.filter-row {
+            border-bottom-color: #000;
+            th {
+                padding-top: 0.5em;
+                padding-bottom: 0.5em;
+            }
         }
-    }
-    thead tr.filter-row {
-        border-bottom-color: #000;
-        th {
-            padding-top: 0.5em;
-            padding-bottom: 0.5em;
-        }
-        // input[type="text"] {
-        //     --bs-border-color: transparent;
-        //     --bs-body-bg: transparent;
-        //     padding-left: 0;
-        //     padding-right: 0;
-        //     &:focus {
-        //         outline: 0;
-        //         box-shadow: none;
-        //         border-color: transparent;
-        //     }
-        // }
     }
     tbody {
-        // input[type="text"] {
-        //     --bs-border-color: transparent;
-        //     --bs-body-bg: transparent;
-        // }
+        display: table;
+        width: 100%;
     }
+    display: block;
+    padding-top: 73px;
+    padding-bottom: 37px;
     // tfoot {
     //     > tr {
     //         position: fixed;

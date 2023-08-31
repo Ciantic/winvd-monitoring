@@ -1,23 +1,19 @@
 @import "https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css";
 .table {
   margin-bottom: 0;
-}
-.table > :not(caption) > * > * {
-  padding: 0.15rem 0.25rem;
-}
-.table > * > * > *:first-child {
-  padding-left: 1em;
-}
-.table > * > *:last-child {
-  padding-right: 1em;
+  display: block;
+  padding-top: 73px;
+  padding-bottom: 37px;
 }
 .table th,
 .table td {
   vertical-align: middle;
+  padding: 0.15rem 0.25rem;
 }
 .table .cb {
-  width: 2rem;
+  width: 3rem;
   padding-right: 0.8rem;
+  padding-left: 1rem;
 }
 .table .day {
   width: 7rem;
@@ -47,8 +43,14 @@
   box-shadow: none;
   border-color: transparent;
 }
-.table tbody tr:last-child td {
-  border-bottom: 1px solid #000;
+.table tfoot {
+  display: table;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  z-index: 2;
 }
 .table tfoot tr {
   border-top-color: #000;
@@ -58,12 +60,25 @@
   padding-top: 0.5em;
   padding-bottom: 0.5em;
 }
+.table thead {
+  display: table;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  width: 100%;
+  z-index: 2;
+}
 .table thead tr.filter-row {
   border-bottom-color: #000;
 }
 .table thead tr.filter-row th {
   padding-top: 0.5em;
   padding-bottom: 0.5em;
+}
+.table tbody {
+  display: table;
+  width: 100%;
 }
 .loading-fullscreen {
   position: fixed;
