@@ -27,7 +27,7 @@ tauri = { version = "1.5.2", features = [
     "window-all",
 ] }
 raw-window-handle = "0.5"
-windows = { version = "0.44", features = [
+windows = { version = "0.51", features = [
     # Find WinApi features with searching here https://microsoft.github.io/windows-docs-rs/
 
     # https://microsoft.github.io/windows-docs-rs/doc/windows/Win32/Graphics/Dwm/fn.DwmExtendFrameIntoClientArea.html

@@ -1,8 +1,7 @@
 use std::sync::mpsc::Sender;
 
 use windows::{
-    core::Result,
-    s,
+    core::{s, Result},
     Win32::{
         Foundation::{HANDLE, HWND, LPARAM, LRESULT, WPARAM},
         System::{
@@ -43,7 +42,7 @@ pub fn create_power_events_listener(powerevents_sender: Sender<PowerEvent>) -> B
     let hwnd = hwnd_receiver.recv().unwrap();
     return Box::new(move || {
         // Post quit message to hwnd
-        unsafe { PostMessageA(hwnd, WM_CLOSE, WPARAM(0), LPARAM(0)) };
+        let _ = unsafe { PostMessageA(hwnd, WM_CLOSE, WPARAM(0), LPARAM(0)) };
         thread.join().unwrap();
     });
 }
@@ -60,7 +59,7 @@ unsafe fn run_new_window(
 
     let wc = WNDCLASSA {
         hCursor: LoadCursorW(None, IDC_ARROW)?,
-        hInstance: instance,
+        hInstance: instance.into(),
         lpszClassName: window_class,
         style: CS_HREDRAW | CS_VREDRAW,
         lpfnWndProc: Some(wndproc),
@@ -102,8 +101,8 @@ unsafe fn run_new_window(
         DispatchMessageA(&message);
     }
 
-    UnregisterPowerSettingNotification(reg1);
-    UnregisterPowerSettingNotification(reg2);
+    let _ = UnregisterPowerSettingNotification(reg1);
+    let _ = UnregisterPowerSettingNotification(reg2);
 
     Ok(())
 }

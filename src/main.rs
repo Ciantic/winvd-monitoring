@@ -226,13 +226,13 @@ fn emit_power_events(window: &Window) {
     });
 }
 
-fn emit_monitoring_person_detected(window: &Window) {
-    let _ = window.emit("monitoring_person_detected", true);
-}
+// fn emit_monitoring_person_detected(window: &Window) {
+//     let _ = window.emit("monitoring_person_detected", true);
+// }
 
-fn emit_monitoring_person_detector_connection(window: &Window) {
-    let _ = window.emit("monitoring_person_detector_connection", false);
-}
+// fn emit_monitoring_person_detector_connection(window: &Window) {
+//     let _ = window.emit("monitoring_person_detector_connection", false);
+// }
 
 #[tauri::command]
 fn monitoring_connected(window: Window) -> MainConnected {
