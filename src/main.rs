@@ -238,12 +238,6 @@ fn emit_power_events(window: &Window) {
 fn monitoring_connected(window: Window) -> MainConnected {
     // Listeners are now created, so we can start emitting events
 
-    // TODO: emit monitoring_person_detected true false
-    // TODO: emit monitoring_person_detector_connection true false
-
-    emit_desktop_event_thread(&window);
-    emit_focus_and_blur_events(&window);
-    emit_power_events(&window);
     MainConnected {
         desktop: WebDesktop::from(get_current_desktop().unwrap()),
         person_detector_connected: false,
@@ -266,6 +260,12 @@ fn main() {
         .setup(move |app| {
             let window = app.get_window("main").unwrap();
             window.open_devtools();
+
+            // TODO: emit monitoring_person_detected true false
+            // TODO: emit monitoring_person_detector_connection true false
+            emit_desktop_event_thread(&window);
+            emit_focus_and_blur_events(&window);
+            emit_power_events(&window);
             pin_to_all_desktops(&window);
             setup_native_shadows(&window);
             Ok(())

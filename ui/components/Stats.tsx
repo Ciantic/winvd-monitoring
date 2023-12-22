@@ -233,7 +233,7 @@ function createCheckboxManager(rows: () => { id: string }[]) {
 }
 
 export function Stats() {
-    const [fxExpr, setFxExpr] = createSignal("r(x*1.25)");
+    const [fxExpr, setFxExpr] = createSignal("r(x*1.25*2,0)/2");
     const [hoursFilter, setHoursFilter] = createSignal("x>0.01");
     const [dayFilter, setDayFilter] = createSignal("1 months");
     const [clientFilter, setClientFilter] = createSignal("");
