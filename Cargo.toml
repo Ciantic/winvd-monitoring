@@ -1,6 +1,6 @@
 [package]
 name = "winvd-monitoring"
-version = "0.1.0"
+version = "0.1.1"
 description = ""
 authors = ["Jari O. O. Pennanen <ciantic@oksidi.com>"]
 license = "MIT"
@@ -27,7 +27,7 @@ tauri = { version = "1.5.2", features = [
     "window-all",
 ] }
 raw-window-handle = "0.5"
-windows = { version = "0.51", features = [
+windows = { version = "0.52", features = [
     # Find WinApi features with searching here https://microsoft.github.io/windows-docs-rs/
 
     # https://microsoft.github.io/windows-docs-rs/doc/windows/Win32/Graphics/Dwm/fn.DwmExtendFrameIntoClientArea.html
