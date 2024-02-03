@@ -8,8 +8,8 @@ async function getOrCreateSqlite3() {
             csqlite3 = await sqlite3InitModule();
         } else {
             csqlite3 = await sqlite3InitModule({
-                locateFile(file: string) {
-                    return "https://cdn.jsdelivr.net/npm/@sqlite.org/sqlite-wasm@3.42.0-build2/sqlite-wasm/jswasm/sqlite3.wasm";
+                locateFile(_file: string) {
+                    return "https://cdn.jsdelivr.net/npm/@sqlite.org/sqlite-wasm@3.45.1-build1/sqlite-wasm/jswasm/sqlite3.wasm";
                 },
             });
         }
