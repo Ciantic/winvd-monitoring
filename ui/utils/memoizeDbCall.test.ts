@@ -1,4 +1,4 @@
-import { assertEquals } from "https://deno.land/std/testing/asserts.ts";
+import { assertEquals } from "https://deno.land/std/assert/mod.ts";
 import { Symbols } from "./memoize.ts";
 import { memoizeDbFunction, transaction } from "./memoizeDbCall.ts";
 

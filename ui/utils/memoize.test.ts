@@ -1,6 +1,6 @@
 // deno-lint-ignore-file no-explicit-any
 
-import { assertEquals, assert } from "https://deno.land/std/testing/asserts.ts";
+import { assertEquals, assert } from "https://deno.land/std/assert/mod.ts";
 import { memoize, makeKey, Symbols } from "./memoize.ts";
 
 Deno.test("memoize makeKey", () => {
@@ -144,18 +144,4 @@ Deno.test("memoize promise", async () => {
     const value = await promise;
     assertEquals(value, "success");
     assert(memoized.cache.get(Symbols.CACHE_TRUE) === promise, "cache");
-});
-
-const memoized = memoize(function (a: number) {
-    return a ** 10;
-});
-Deno.bench("memoize", () => {
-    memoized(123);
-});
-
-const notmemoize = function (a: number) {
-    return a ** 10;
-};
-Deno.bench("notmemoize", () => {
-    notmemoize(123);
 });

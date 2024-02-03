@@ -1,4 +1,4 @@
-import { assertEquals } from "https://deno.land/std/testing/asserts.ts";
+import { assertEquals } from "https://deno.land/std/assert/mod.ts";
 import { TransactionalCache } from "./TransactionalCache.ts";
 
 Deno.test("TransactionalCache rollback", () => {

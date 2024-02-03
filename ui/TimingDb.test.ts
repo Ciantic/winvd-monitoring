@@ -1,4 +1,4 @@
-import { assertEquals, assertNotEquals } from "https://deno.land/std/testing/asserts.ts";
+import { assertEquals, assertMatch } from "https://deno.land/std/assert/mod.ts";
 import {
     createSchema,
     getDailyTotals,
@@ -80,10 +80,7 @@ Deno.test("TimingDb insert timings, errors", async () => {
     const storedTimings = await getTimings(db);
     assertEquals([], storedTimings);
     assertEquals(error.name, "SQLite3Error");
-    assertEquals(
-        error.message,
-        "sqlite3 result code 1299: NOT NULL constraint failed: client.name"
-    );
+    assertMatch(error.message, /NOT NULL constraint failed: client.name/);
 
     // Ensure no transaction was not left unfinished and try insert again, it should work
 
