@@ -2,8 +2,8 @@ import { format } from "npm:date-fns";
 
 export const Lang = {
     total: "Total",
-    lastWeek: "Last Week",
-    thisWeek: "This Week",
+    lastWeek: "Last week",
+    thisWeek: "This week",
     eightWeek: "8 weeks",
     hours: "Hours",
     sum: "𝑓(x)=",
@@ -14,8 +14,8 @@ export const Lang = {
     summary: "Summary",
     export: "Export",
     close: "Close",
-    showProjects: "Show Projects",
-    showClients: "Show Clients",
+    showProjects: "Show projects",
+    showClients: "Show clients",
 };
 
 export function formatDate(date: Date) {

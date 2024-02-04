@@ -287,7 +287,8 @@ export function Stats() {
     const ExportDialog = () => {
         const [showProject, setShowProject] = createSignal(false);
         const [showClient, setShowClient] = createSignal(false);
-        const data = createMemo(() =>
+        const [textareaRef, setTextareaRef] = createSignal<HTMLTextAreaElement | null>(null);
+        const tsvText = createMemo(() =>
             checkedRows().map((id) => {
                 const row = dataProcessed().rows.find((x) => x.id === id);
                 if (!row) {
@@ -306,6 +307,14 @@ export function Stats() {
                 return cols.join("\t") + "\n";
             })
         );
+        createEffect(() => {
+            const textarea = textareaRef();
+            if (textarea) {
+                textarea.select();
+                textarea.setSelectionRange(0, 99999);
+                document.execCommand("copy");
+            }
+        });
         return (
             <>
                 <div class="modal-backdrop fade show"></div>
@@ -332,19 +341,6 @@ export function Stats() {
                                         class="form-check-input"
                                         type="checkbox"
                                         value=""
-                                        checked={showProject()}
-                                        onInput={(_e) => setShowProject(!showProject())}
-                                        id="show-project"
-                                    />
-                                    <label class="form-check-label" for="show-project">
-                                        {Lang.showProjects}
-                                    </label>
-                                </div>{" "}
-                                <div class="form-check">
-                                    <input
-                                        class="form-check-input"
-                                        type="checkbox"
-                                        value=""
                                         checked={showClient()}
                                         onInput={(_e) => setShowClient(!showClient())}
                                         id="show-client"
@@ -353,8 +349,26 @@ export function Stats() {
                                         {Lang.showClients}
                                     </label>
                                 </div>
-                                <textarea class="form-control" rows="15" cols="70">
-                                    {data()}
+                                <div class="form-check">
+                                    <input
+                                        class="form-check-input"
+                                        type="checkbox"
+                                        value=""
+                                        checked={showProject()}
+                                        onInput={(_e) => setShowProject(!showProject())}
+                                        id="show-project"
+                                    />
+                                    <label class="form-check-label" for="show-project">
+                                        {Lang.showProjects}
+                                    </label>
+                                </div>
+                                <textarea
+                                    class="form-control"
+                                    rows="15"
+                                    cols="70"
+                                    ref={setTextareaRef}
+                                >
+                                    {tsvText()}
                                 </textarea>
                             </div>
                             <div class="modal-footer">
