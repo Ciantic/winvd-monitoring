@@ -15,9 +15,12 @@ import {
     Setter,
     createEffect,
     onCleanup,
+    JSX,
 } from "npm:solid-js";
 
-import { Lang, formatDate } from "../Lang.ts";
+import { render } from "npm:solid-js/web";
+
+import { Lang, formatDate, formatDateTsv, formatDecimal } from "../Lang.ts";
 import { getDailyTotals, getSummaries, insertSummaryForDay } from "../TimingDb.ts";
 import { createTimingDatabase } from "../TimingDbCreator.ts";
 
@@ -152,9 +155,10 @@ function createCheckboxManager(rows: () => { id: string }[]) {
     const isAllChecked = createMemo(() => {
         return rows().length > 0 && checkedRows().length === rows().length;
     });
-    const onChangeAllChecked = (
-        e: Event & { currentTarget: HTMLInputElement; target: HTMLInputElement }
-    ) => {
+    const onChangeAllChecked = (e: {
+        currentTarget: HTMLInputElement;
+        target: HTMLInputElement;
+    }) => {
         if (e.currentTarget.checked) {
             setCheckedRows(rows().map((x) => x.id));
         } else {
@@ -181,7 +185,7 @@ function createCheckboxManager(rows: () => { id: string }[]) {
     });
 
     function onChangeChecked(
-        e: Event & { currentTarget: HTMLInputElement; target: HTMLInputElement },
+        e: { currentTarget: HTMLInputElement; target: HTMLInputElement },
         currentRow: { id: string }
     ) {
         const isChecked = checkedRows().find((x) => x === currentRow.id) !== undefined;
@@ -238,6 +242,7 @@ export function Stats() {
     const [dayFilter, setDayFilter] = createSignal("1 months");
     const [clientFilter, setClientFilter] = createSignal("");
     const [projectFilter, setProjectFilter] = createSignal("");
+    const [showExportDialog, setShowExportDialog] = createSignal(false);
     const parsedDateRange = createMemo(() => parseDateRange(dayFilter()));
 
     const fxFunc = createMemo(() => (x: number) => {
@@ -279,6 +284,96 @@ export function Stats() {
         fetchData
     );
 
+    const ExportDialog = () => {
+        const [showProject, setShowProject] = createSignal(false);
+        const [showClient, setShowClient] = createSignal(false);
+        const data = createMemo(() =>
+            checkedRows().map((id) => {
+                const row = dataProcessed().rows.find((x) => x.id === id);
+                if (!row) {
+                    return "";
+                }
+
+                const cols = [formatDateTsv(row.day)];
+                if (showClient()) {
+                    cols.push(row.client);
+                }
+                if (showProject()) {
+                    cols.push(row.project);
+                }
+                cols.push(typeof row.fx === "number" ? formatDecimal(row.fx) : row.fx);
+                cols.push(row.summary);
+                return cols.join("\t") + "\n";
+            })
+        );
+        return (
+            <>
+                <div class="modal-backdrop fade show"></div>
+                <div
+                    class="modal d-block export-dialog"
+                    tabindex="-1"
+                    aria-modal="true"
+                    role="dialog"
+                >
+                    <div class="modal-dialog">
+                        <div class="modal-content">
+                            <div class="modal-header">
+                                <h5 class="modal-title">{Lang.export}</h5>
+                                <button
+                                    type="button"
+                                    class="btn-close"
+                                    aria-label={Lang.close}
+                                    onClick={() => setShowExportDialog(false)}
+                                ></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="form-check">
+                                    <input
+                                        class="form-check-input"
+                                        type="checkbox"
+                                        value=""
+                                        checked={showProject()}
+                                        onInput={(_e) => setShowProject(!showProject())}
+                                        id="show-project"
+                                    />
+                                    <label class="form-check-label" for="show-project">
+                                        {Lang.showProjects}
+                                    </label>
+                                </div>{" "}
+                                <div class="form-check">
+                                    <input
+                                        class="form-check-input"
+                                        type="checkbox"
+                                        value=""
+                                        checked={showClient()}
+                                        onInput={(_e) => setShowClient(!showClient())}
+                                        id="show-client"
+                                    />
+                                    <label class="form-check-label" for="show-client">
+                                        {Lang.showClients}
+                                    </label>
+                                </div>
+                                <textarea class="form-control" rows="15" cols="70">
+                                    {data()}
+                                </textarea>
+                            </div>
+                            <div class="modal-footer">
+                                <button
+                                    type="button"
+                                    class="btn btn-secondary"
+                                    data-bs-dismiss="modal"
+                                    onClick={() => setShowExportDialog(false)}
+                                >
+                                    {Lang.close}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </>
+        );
+    };
+
     const dataProcessed = createMemo(() => {
         const data = getData();
         const rows =
@@ -304,146 +399,166 @@ export function Stats() {
         createCheckboxManager(() => dataProcessed().rows);
 
     return (
-        <table class="table table-hover">
-            <thead>
-                <tr>
-                    <th class="cb"></th>
-                    <th class="day">{Lang.day}</th>
-                    <th class="client">{Lang.client}</th>
-                    <th class="project">{Lang.project}</th>
-                    <th class="hours">{Lang.hours}</th>
-                    <th class="fx">{Lang.sum}</th>
-                    <th class="summary">{Lang.summary}</th>
-                </tr>
-                <tr class="filter-row">
-                    <th class="cb">
-                        <input
-                            class="form-check-input"
-                            type="checkbox"
-                            checked={isAllChecked()}
-                            onChange={onChangeAllChecked}
-                        />
-                    </th>
-                    <th class="day">
-                        <input
-                            class="form-control"
-                            type="text"
-                            value={dayFilter()}
-                            onInput={(e) => {
-                                setDayFilter(e.currentTarget.value);
-                            }}
-                        />
-                    </th>
-                    <th class="client">
-                        <input
-                            class="form-control"
-                            type="text"
-                            value={clientFilter()}
-                            onInput={(e) => {
-                                setClientFilter(e.currentTarget.value);
-                            }}
-                        />
-                    </th>
-                    <th class="project">
-                        <input
-                            class="form-control"
-                            type="text"
-                            value={projectFilter()}
-                            onInput={(e) => {
-                                setProjectFilter(e.currentTarget.value);
-                            }}
-                        />
-                    </th>
-                    <th class="hours">
-                        <input
-                            class="form-control"
-                            type="text"
-                            value={hoursFilter()}
-                            onInput={(e) => {
-                                setHoursFilter(e.currentTarget.value);
-                            }}
-                        />
-                    </th>
-                    <th class="fx">
-                        <input
-                            class="form-control"
-                            type="text"
-                            value={fxExpr()}
-                            onInput={(e) => {
-                                setFxExpr(e.currentTarget.value);
-                            }}
-                        />
-                    </th>
-                    <th class="summary"></th>
-                </tr>
-            </thead>
-            <tbody>
-                <Suspense
-                    fallback={
-                        <tr>
-                            <td colspan="7">
-                                <div class="loading-fullscreen">
-                                    <div class="spinner">
-                                        <div class="spinner-border text-primary" role="status">
-                                            <span class="visually-hidden">Loading...</span>
+        <>
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th class="cb"></th>
+                        <th class="day">{Lang.day}</th>
+                        <th class="client">{Lang.client}</th>
+                        <th class="project">{Lang.project}</th>
+                        <th class="hours">{Lang.hours}</th>
+                        <th class="fx">{Lang.sum}</th>
+                        <th class="summary">{Lang.summary}</th>
+                    </tr>
+                    <tr class="filter-row">
+                        <th class="cb">
+                            <input
+                                class="form-check-input"
+                                type="checkbox"
+                                checked={isAllChecked()}
+                                onChange={onChangeAllChecked}
+                            />
+                        </th>
+                        <th class="day">
+                            <input
+                                class="form-control"
+                                type="text"
+                                value={dayFilter()}
+                                onInput={(e) => {
+                                    setDayFilter(e.currentTarget.value);
+                                }}
+                            />
+                        </th>
+                        <th class="client">
+                            <input
+                                class="form-control"
+                                type="text"
+                                value={clientFilter()}
+                                onInput={(e) => {
+                                    setClientFilter(e.currentTarget.value);
+                                }}
+                            />
+                        </th>
+                        <th class="project">
+                            <input
+                                class="form-control"
+                                type="text"
+                                value={projectFilter()}
+                                onInput={(e) => {
+                                    setProjectFilter(e.currentTarget.value);
+                                }}
+                            />
+                        </th>
+                        <th class="hours">
+                            <input
+                                class="form-control"
+                                type="text"
+                                value={hoursFilter()}
+                                onInput={(e) => {
+                                    setHoursFilter(e.currentTarget.value);
+                                }}
+                            />
+                        </th>
+                        <th class="fx">
+                            <input
+                                class="form-control"
+                                type="text"
+                                value={fxExpr()}
+                                onInput={(e) => {
+                                    setFxExpr(e.currentTarget.value);
+                                }}
+                            />
+                        </th>
+                        <th class="summary"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <Suspense
+                        fallback={
+                            <tr>
+                                <td colspan="7">
+                                    <div class="loading-fullscreen">
+                                        <div class="spinner">
+                                            <div class="spinner-border text-primary" role="status">
+                                                <span class="visually-hidden">Loading...</span>
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            </td>
-                        </tr>
-                    }
-                >
-                    <For each={dataProcessed().rows}>
-                        {(row) => (
-                            <tr>
-                                <td class="cb">
-                                    <input
-                                        class="form-check-input"
-                                        type="checkbox"
-                                        checked={
-                                            checkedRows().find((x) => x === row.id) !== undefined
-                                        }
-                                        onChange={(e) => {
-                                            onChangeChecked(e, row);
-                                        }}
-                                    />
-                                </td>
-                                <td class="day">{formatDate(row.day)}</td>
-                                <td class="client">{row.client}</td>
-                                <td class="project">{row.project}</td>
-                                <td class="hours">{Math.round(row.hours * 10) / 10}</td>
-                                <td class="fx">{row.fx}</td>
-                                <td class="summary">
-                                    <input
-                                        class="form-control"
-                                        type="text"
-                                        value={row.summary}
-                                        onInput={(e) => {
-                                            insertSummaryForDay(timingDb, {
-                                                day: row.day,
-                                                summary: e.currentTarget.value,
-                                                client: row.client,
-                                                project: row.project,
-                                            });
-                                        }}
-                                    />
                                 </td>
                             </tr>
-                        )}
-                    </For>
-                </Suspense>
-            </tbody>
-            <tfoot>
-                <tr>
-                    <th class="cb"></th>
-                    <th class="day"></th>
-                    <th class="client"></th>
-                    <th class="project"></th>
-                    <th class="hours">{dataProcessed().totalHours?.toFixed(2)}</th>
-                    <th class="fx">{dataProcessed().totalFx?.toFixed(2)}</th>
-                    <th class="summary"></th>
-                </tr>
-            </tfoot>
-        </table>
+                        }
+                    >
+                        <For each={dataProcessed().rows}>
+                            {(row) => (
+                                <tr>
+                                    <td class="cb">
+                                        <input
+                                            class="form-check-input"
+                                            type="checkbox"
+                                            checked={
+                                                checkedRows().find((x) => x === row.id) !==
+                                                undefined
+                                            }
+                                            onChange={(e) => {
+                                                onChangeChecked(e, row);
+                                            }}
+                                        />
+                                    </td>
+                                    <td class="day">{formatDate(row.day)}</td>
+                                    <td class="client">{row.client}</td>
+                                    <td class="project">{row.project}</td>
+                                    <td class="hours">{Math.round(row.hours * 10) / 10}</td>
+                                    <td class="fx">{row.fx}</td>
+                                    <td class="summary">
+                                        <input
+                                            class="form-control"
+                                            type="text"
+                                            value={row.summary}
+                                            onInput={(e) => {
+                                                insertSummaryForDay(timingDb, {
+                                                    day: row.day,
+                                                    summary: e.currentTarget.value,
+                                                    client: row.client,
+                                                    project: row.project,
+                                                });
+                                            }}
+                                        />
+                                    </td>
+                                </tr>
+                            )}
+                        </For>
+                    </Suspense>
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <th class="cb">
+                            {checkedRows().length > 0 ? (
+                                <div class="actions">
+                                    <button
+                                        type="button"
+                                        class="btn btn-primary"
+                                        onClick={() => {
+                                            setShowExportDialog(showExportDialog() ? false : true);
+                                        }}
+                                    >
+                                        {Lang.export}&hellip;
+                                    </button>
+                                </div>
+                            ) : null}
+                        </th>
+                        <th class="day"></th>
+                        <th class="client"></th>
+                        <th class="project"></th>
+                        <th class="hours">{dataProcessed().totalHours?.toFixed(2)}</th>
+                        <th class="fx">{dataProcessed().totalFx?.toFixed(2)}</th>
+                        <th class="summary"></th>
+                    </tr>
+                </tfoot>
+            </table>
+            <Show when={showExportDialog()}>
+                <ExportDialog />
+            </Show>
+        </>
     );
 }

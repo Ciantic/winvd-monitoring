@@ -12,6 +12,10 @@ export const Lang = {
     project: "Project",
     day: "Day",
     summary: "Summary",
+    export: "Export",
+    close: "Close",
+    showProjects: "Show Projects",
+    showClients: "Show Clients",
 };
 
 export function formatDate(date: Date) {
@@ -20,4 +24,12 @@ export function formatDate(date: Date) {
         return format(date, "d.M. eee");
     }
     return format(date, "d.M.yyyy eee");
+}
+
+export function formatDateTsv(date: Date) {
+    return format(date, "d.M.yyyy");
+}
+
+export function formatDecimal(value: number) {
+    return value.toFixed(2).replace(".", ",");
 }
