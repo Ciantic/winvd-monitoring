@@ -20,7 +20,7 @@ import {
 
 import { render } from "npm:solid-js/web";
 
-import { Lang, formatDate, formatDateTsv, formatDecimal } from "../Lang.ts";
+import { Lang, formatDateLong, formatDateTsv, formatDecimal, parseDateRange } from "../Lang.ts";
 import { getDailyTotals, getSummaries, insertSummaryForDay } from "../TimingDb.ts";
 import { createTimingDatabase } from "../TimingDbCreator.ts";
 
@@ -45,93 +45,6 @@ function debounce<T>(fn: (arg: T) => void, delay: number): (arg: T) => void {
             timeoutId = undefined;
         }, delay);
     };
-}
-
-function parseFinnishDate(date: string): Date | undefined {
-    // If date in format "jj.nn.(yyyy)?"
-    const match = date.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})?$/);
-    if (!match) {
-        return undefined;
-    }
-    const day = parseInt(match[1]);
-    const month = parseInt(match[2]) - 1;
-    const maybeYear = match[3];
-    const d = new Date();
-    d.setDate(day);
-    d.setMonth(month);
-    if (maybeYear) {
-        d.setFullYear(parseInt(maybeYear));
-    }
-    return d;
-}
-
-function parseFinnishDateRange(range: string): { from: Date; to: Date } | undefined {
-    const match = range.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})?-(\d{1,2})\.(\d{1,2})\.(\d{4})?$/);
-    if (!match) {
-        return undefined;
-    }
-    const fromDay = parseInt(match[1]);
-    const fromMonth = parseInt(match[2]) - 1;
-    const fromYear = match[3] ? parseInt(match[3]) : undefined;
-    const toDay = parseInt(match[4]);
-    const toMonth = parseInt(match[5]) - 1;
-    const toYear = match[6] ? parseInt(match[6]) : undefined;
-    const from = new Date();
-    from.setDate(fromDay);
-    from.setMonth(fromMonth);
-    if (fromYear) {
-        from.setFullYear(fromYear);
-    }
-    const to = new Date();
-    to.setDate(toDay);
-    to.setMonth(toMonth);
-    if (toYear) {
-        to.setFullYear(toYear);
-    }
-    return { from, to };
-}
-
-function parseDateRange(range: string): { from: Date; to: Date } | undefined {
-    {
-        const finnishDate = parseFinnishDate(range);
-        if (finnishDate) {
-            const to = new Date();
-            const from = new Date(finnishDate);
-            return { from, to };
-        }
-    }
-    {
-        const finnishDateRange = parseFinnishDateRange(range);
-        if (finnishDateRange) {
-            return finnishDateRange;
-        }
-    }
-    {
-        // If the range is "n months" or "n weeks" or "n days" or "n hours" or "n minutes"
-        const match = range.match(/^(\d+) (months?|weeks?|days?)$/);
-        if (match) {
-            const amount = parseInt(match[1]);
-            const unit = match[2];
-            const to = new Date();
-            const from = new Date(to);
-            switch (unit) {
-                case "month":
-                case "months":
-                    from.setMonth(from.getMonth() - amount);
-                    break;
-                case "week":
-                case "weeks":
-                    from.setDate(from.getDate() - amount * 7);
-                    break;
-                case "day":
-                case "days":
-                    from.setDate(from.getDate() - amount);
-                    break;
-            }
-            return { from, to };
-        }
-    }
-    return undefined;
 }
 
 async function fetchData(props: { from?: Date; to?: Date; client: string; project: string }) {
@@ -285,11 +198,13 @@ export function Stats() {
     );
 
     const ExportDialog = () => {
-        const [showProject, setShowProject] = createSignal(false);
-        const [showClient, setShowClient] = createSignal(false);
+        const [showProject, setShowProject] = createSignal(true);
+        const [showClient, setShowClient] = createSignal(true);
+        const [gropuByProject, setGroupByProject] = createSignal(false);
         const [textareaRef, setTextareaRef] = createSignal<HTMLTextAreaElement | null>(null);
-        const tsvText = createMemo(() =>
-            checkedRows().map((id) => {
+
+        function allRows() {
+            return checkedRows().map((id) => {
                 const row = dataProcessed().rows.find((x) => x.id === id);
                 if (!row) {
                     return "";
@@ -305,8 +220,48 @@ export function Stats() {
                 cols.push(typeof row.fx === "number" ? formatDecimal(row.fx) : row.fx);
                 cols.push(row.summary);
                 return cols.join("\t") + "\n";
-            })
-        );
+            });
+        }
+
+        function groupByProject() {
+            const grouped = dataProcessed()
+                .rows.filter((x) => checkedRows().find((id) => id === x.id))
+                .reduce((acc, x) => {
+                    const key = x.client + "\t" + x.project;
+                    if (!acc[key]) {
+                        acc[key] = {
+                            client: x.client,
+                            project: x.project,
+                            fx: 0,
+                            summaries: [],
+                        };
+                    }
+                    acc[key].fx += typeof x.fx === "number" ? x.fx : 0;
+                    acc[key].summaries.push({ date: formatDateTsv(x.day), summary: x.summary });
+                    return acc;
+                }, {} as Record<string, { client: string; project: string; fx: number; summaries: { date: string; summary: string }[] }>);
+            return Object.values(grouped).map((x) => {
+                const cols = [];
+                if (showClient()) {
+                    cols.push(x.client);
+                }
+                if (showProject()) {
+                    cols.push(x.project);
+                }
+                cols.push(formatDecimal(x.fx));
+                const firstDate = x.summaries[0]?.date;
+                const lastDate = x.summaries[x.summaries.length - 1]?.date;
+                cols.push(firstDate === lastDate ? firstDate : firstDate + "-" + lastDate);
+                return cols.join("\t") + "\n";
+            });
+        }
+        const tsvText = createMemo(() => {
+            if (gropuByProject()) {
+                return groupByProject();
+            } else {
+                return allRows();
+            }
+        });
         createEffect(() => {
             const textarea = textareaRef();
             if (textarea) {
@@ -360,6 +315,19 @@ export function Stats() {
                                     />
                                     <label class="form-check-label" for="show-project">
                                         {Lang.showProjects}
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input
+                                        class="form-check-input"
+                                        type="checkbox"
+                                        value=""
+                                        checked={gropuByProject()}
+                                        onInput={(_e) => setGroupByProject(!gropuByProject())}
+                                        id="group-by-project"
+                                    />
+                                    <label class="form-check-label" for="group-by-project">
+                                        {Lang.groupByProject}
                                     </label>
                                 </div>
                                 <textarea
@@ -519,7 +487,7 @@ export function Stats() {
                                             }}
                                         />
                                     </td>
-                                    <td class="day">{formatDate(row.day)}</td>
+                                    <td class="day">{formatDateLong(row.day)}</td>
                                     <td class="client">{row.client}</td>
                                     <td class="project">{row.project}</td>
                                     <td class="hours">{Math.round(row.hours * 10) / 10}</td>
