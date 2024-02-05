@@ -20,7 +20,13 @@ import {
 
 import { render } from "npm:solid-js/web";
 
-import { Lang, formatDateLong, formatDateTsv, formatDecimal, parseDateRange } from "../Lang.ts";
+import { Lang } from "../Lang.ts";
+import {
+    formatDateLong,
+    formatDateTsv,
+    formatDecimal,
+    parseDateRange,
+} from "../utils/formatDate.ts";
 import { getDailyTotals, getSummaries, insertSummaryForDay } from "../TimingDb.ts";
 import { createTimingDatabase } from "../TimingDbCreator.ts";
 
