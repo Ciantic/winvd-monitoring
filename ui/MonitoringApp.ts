@@ -1,6 +1,6 @@
 import { makeObservable, observable, computed, action, reaction, runInAction } from "npm:mobx";
 import { RustBackend } from "./RustBackend.ts";
-import { getDailyTotals, insertTimings } from "./TimingDb.ts";
+import { getDailyTotals, insertTimings, insertSummaryForDay, getSummaries } from "./TimingDb.ts";
 import { TimingRecorder } from "./TimingRecorder.ts";
 import { emptyTotals, TotalsCache } from "./TotalsCache.ts";
 import { cancellablePromise, CancellablePromise } from "./utils/cancellablePromise.ts";
@@ -21,20 +21,24 @@ export class MonitoringApp {
     @observable private isMonitorsOff = false;
     @observable private client = "";
     @observable private project = "";
+    @observable private summary = "";
     @observable private pausedProjects = new Map<string, boolean>();
     @observable private isLoadingTotals = false;
+    @observable private isLoadingSummary = false;
     @observable private totals = emptyTotals();
 
     private hideAfterTimeout = 0;
     private tickTimeout = 0;
     private updateTotalsTimeout = 0;
     private sendDesktopNameBounceTimeout = 0;
+    private updateSummaryBounceTimeout = 0;
     private timingDb = createTimingDatabase();
     private recorder = new TimingRecorder(true, insertTimings.bind(null, this.timingDb));
     private totalsCache = new TotalsCache(getDailyTotals.bind(null, this.timingDb));
     private lastUpdateFromDb?: CancellablePromise<void>;
 
     private cleanReactionClientOrProjectChanges: () => void;
+    private cleanReactionSummaryChanges: () => void;
 
     constructor() {
         makeObservable(this);
@@ -69,6 +73,13 @@ export class MonitoringApp {
             }),
             (newValue, oldValue) => this.clientOrProjectOrRunningChanges(newValue, oldValue)
         );
+
+        this.cleanReactionSummaryChanges = reaction(
+            () => this.summary,
+            (summary) => {
+                console.log("Summary changed", summary);
+            }
+        );
     }
 
     destroy() {
@@ -91,11 +102,13 @@ export class MonitoringApp {
             // currentDesktop: this.currentDesktop,
             clientName: this.client,
             projectName: this.project,
+            summary: this.summary,
             isRunning: this.isRunning,
             isPaused: this.isPaused,
             isFocused: this.isFocusedApp,
             personDetectorConnected: this.personDetectorConnected,
             isLoadingTotals: this.isLoadingTotals,
+            isLoadingSummary: this.isLoadingSummary,
             todayTotal: this.totals.todayTotal,
             thisWeekTotal: this.totals.thisWeekTotal,
             lastWeekTotal: this.totals.lastWeekTotal,
@@ -103,6 +116,7 @@ export class MonitoringApp {
             onFocusedInput: this.onFocusedInput,
             onChangeClient: this.onChangeClient,
             onChangeProject: this.onChangeProject,
+            onChangeSummary: this.onChangeSummary,
             onClickPlayPause: this.onClickPlayPause,
         };
     }
@@ -230,6 +244,33 @@ export class MonitoringApp {
         oldValue: { client: string; project: string; isRunning: boolean }
     ) => {
         const now = new Date();
+
+        // If the client or project changes, update the summary
+        if (oldValue.client != newValue.client || oldValue.project != newValue.project) {
+            this.summary = "";
+
+            if (newValue.client != "" && newValue.project != "") {
+                const from = new Date();
+                from.setHours(0, 0, 0, 0);
+
+                const to = new Date();
+                to.setHours(24, 0, 0, 0);
+
+                this.isLoadingSummary = true;
+                getSummaries(this.timingDb, {
+                    from,
+                    to,
+                    client: newValue.client,
+                    project: newValue.project,
+                }).then((summaries) => {
+                    runInAction(() => {
+                        this.summary = summaries[0]?.text ?? "";
+                        this.isLoadingSummary = false;
+                    });
+                });
+            }
+        }
+
         // If the last value was running, store it
         if (oldValue.isRunning) {
             this.recorder.stop(now);
@@ -290,8 +331,32 @@ export class MonitoringApp {
         this.sendDesktopNameBounceTimeout = setTimeout(this.sendDesktopName, 150);
     };
 
+    @action
+    private onChangeSummary = (v: string) => {
+        this.summary = v;
+        clearTimeout(this.updateSummaryBounceTimeout);
+        this.updateSummaryBounceTimeout = setTimeout(this.updateSummary, 150);
+    };
+
     private sendDesktopName = () => {
         RustBackend.monitoringChangeDesktopName(`${this.client}: ${this.project}`);
+    };
+
+    private updateSummary = () => {
+        if (this.client === "" || this.project === "") {
+            return;
+        }
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        insertSummaryForDay(this.timingDb, {
+            client: this.client,
+            project: this.project,
+            summary: this.summary,
+            day: today,
+        }).then(() => {
+            // console.log("Summary updated");
+        });
     };
 
     @action

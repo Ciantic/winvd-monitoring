@@ -19,13 +19,7 @@ winvd = { path = "../winvd" }
 
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
-tauri = { version = "1.5.2", features = [
-    "devtools",
-    "icon-ico",
-    "icon-png",
-    "system-tray",
-    "window-all",
-] }
+tauri = { version = "1.5.2", features = ["devtools", "icon-ico", "icon-png", "system-tray", "window-all"] }
 raw-window-handle = "0.5"
 windows = { version = "0.52", features = [
     # Find WinApi features with searching here https://microsoft.github.io/windows-docs-rs/

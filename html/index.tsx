@@ -34,8 +34,10 @@ const App = () => {
                 // currentDesktop={state().currentDesktop}
                 clientName={state().clientName}
                 projectName={state().projectName}
+                summary={state().summary}
                 eightWeekTotal={state().eightWeekTotal}
                 isLoadingTotals={state().isLoadingTotals}
+                isLoadingSummary={state().isLoadingSummary}
                 isFocused={state().isFocused}
                 isPaused={state().isPaused}
                 isRunning={state().isRunning}
@@ -46,6 +48,7 @@ const App = () => {
                 startDragging={startDrag}
                 onChangeClient={state().onChangeClient}
                 onChangeProject={state().onChangeProject}
+                onChangeSummary={state().onChangeSummary}
                 onClickPlayPause={state().onClickPlayPause}
                 onFocusedInput={state().onFocusedInput}
             />

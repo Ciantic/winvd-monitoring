@@ -73,8 +73,8 @@ input {
   font-size: 5vw;
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
-  grid-template-rows: 2.25em 2.25em auto 3em;
-  grid-template-areas: "client client client" "project project project" "todayIndicator todayIndicator todayIndicator" "eightWeek lastWeek thisWeek";
+  grid-template-rows: min-content min-content min-content auto 3em;
+  grid-template-areas: "client client client" "project project project" "summary summary summary" "todayIndicator todayIndicator todayIndicator" "eightWeek lastWeek thisWeek";
   text-align: center;
   height: 100%;
   box-sizing: border-box;
@@ -98,7 +98,7 @@ input {
   font-weight: inherit;
   font-size: 120%;
   text-align: center;
-  line-height: 1.3;
+  line-height: 1.5;
   background: none;
 }
 
@@ -111,12 +111,24 @@ input {
 }
 
 .timings .clientName {
+  padding-top: 0.35em;
   grid-area: client;
 }
 
 .timings .projectName {
+  padding-top: 0.05em;
   grid-area: project;
   font-weight: bold;
+}
+
+.timings .summary {
+  grid-area: summary;
+  font-size: 80%;
+  height: 0;
+}
+
+.timings .summary:focus, .timings.hasSummary .summary {
+  height: auto;
 }
 
 .timings .eightWeek {

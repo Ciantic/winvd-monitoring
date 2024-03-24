@@ -10,6 +10,7 @@ export interface TimingsProps {
     // currentDesktop: string;
     clientName: string;
     projectName: string;
+    summary: string;
     isFocused: boolean;
     isRunning: boolean;
     isPaused: boolean;
@@ -19,11 +20,13 @@ export interface TimingsProps {
     lastWeekTotal: number;
     eightWeekTotal: number;
     isLoadingTotals: boolean;
+    isLoadingSummary: boolean;
 
     startDragging: () => void;
     onFocusedInput?: (focused: boolean) => void;
     onChangeClient?: (value: string) => void;
     onChangeProject?: (value: string) => void;
+    onChangeSummary?: (value: string) => void;
     onClickPlayPause?: () => void;
 }
 
@@ -58,6 +61,10 @@ export const Timings = (p: TimingsProps) => {
         p.onChangeProject?.(e.currentTarget?.value);
     };
 
+    const onChangeSummary: JSX.EventHandlerUnion<HTMLInputElement, InputEvent> = (e) => {
+        p.onChangeSummary?.(e.currentTarget?.value);
+    };
+
     const onFocus: JSX.EventHandlerUnion<HTMLInputElement, FocusEvent> = (e) => {
         e.currentTarget?.select();
 
@@ -89,7 +96,13 @@ export const Timings = (p: TimingsProps) => {
 
     return (
         <div
-            class={cns("timings", p.isFocused && "isFocused", p.isLoadingTotals && "loadingTotals")}
+            class={cns(
+                "timings",
+                p.isFocused && "isFocused",
+                p.isLoadingTotals && "loadingTotals",
+                p.isLoadingTotals && "loadingSummary",
+                p.summary.length > 0 && "hasSummary"
+            )}
             onMouseDown={onStartDragging}
         >
             <input
@@ -109,6 +122,16 @@ export const Timings = (p: TimingsProps) => {
                 class={"projectName"}
                 value={p.projectName}
                 spellcheck={false}
+            />
+            <input
+                type="text"
+                onFocus={onFocus}
+                onBlur={onBlur}
+                onInput={onChangeSummary}
+                class={"summary"}
+                value={p.summary}
+                spellcheck={false}
+                disabled={p.isLoadingSummary}
             />
             <div class="todayIndicator">
                 <div
