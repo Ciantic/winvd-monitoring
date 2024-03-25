@@ -3,6 +3,7 @@ import {
     createSchema,
     getDailyTotals,
     getSummaries,
+    getDailySummary,
     getTimings,
     insertSummary,
     insertSummaryForDay,
@@ -161,6 +162,20 @@ Deno.test("TimingDb insert and get summary", async () => {
     });
 
     assertEquals(summaries, [storedSummary]);
+
+    // Get single summary
+    const item = await getDailySummary(db, {
+        client: "Acme Inc",
+        project: "Secret Acme Car",
+        day: new Date("2020-01-01 00:00"),
+    });
+
+    assertEquals(item, {
+        archived: false,
+        client: "Acme Inc",
+        project: "Secret Acme Car",
+        text: "Some text for a summary of days work",
+    });
 });
 
 Deno.test("TimingDb dailyTotals", async () => {
@@ -231,6 +246,7 @@ Deno.test("TimingDb dailyTotals", async () => {
         },
     ]);
 
+    // Get totals
     const totals = await getDailyTotals(db, {
         from: new Date("2020-07-01 00:00"),
         to: new Date("2025-01-02 00:00"),

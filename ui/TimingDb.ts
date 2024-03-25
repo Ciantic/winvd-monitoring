@@ -403,3 +403,54 @@ export async function getSummaries(
         archived: row.archived === 1,
     }));
 }
+
+export async function getDailySummary(
+    db: IDatabase,
+    {
+        day, // Truncated to start of day
+        project,
+        client,
+    }: {
+        day: Date;
+        project: string;
+        client: string;
+    }
+) {
+    const start = new Date(day);
+    start.setHours(0, 0, 0, 0);
+
+    const query = sql`
+        SELECT 
+            summary.text as text,
+            project.name as project,
+            client.name as client,
+            summary.archived as archived
+        FROM summary, project, client
+        WHERE 
+            summary.start = ${start.getTime()}
+            AND summary.projectId = project.id 
+            AND project.clientId = client.id
+            AND client.name = ${client}
+            AND project.name = ${project}
+        ORDER BY start DESC
+    `;
+
+    const rows = await db.select<{
+        text: string;
+        project: string;
+        client: string;
+        archived: number;
+    }>(query.sql, query.params);
+
+    if (rows.length === 0) {
+        return undefined;
+    }
+
+    const row = rows[0];
+    return {
+        text: row.text,
+        project: row.project,
+        client: row.client,
+        archived: row.archived === 1,
+    };
+}

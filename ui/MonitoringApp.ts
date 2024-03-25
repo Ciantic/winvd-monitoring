@@ -1,6 +1,6 @@
 import { makeObservable, observable, computed, action, reaction, runInAction } from "npm:mobx";
 import { RustBackend } from "./RustBackend.ts";
-import { getDailyTotals, insertTimings, insertSummaryForDay, getSummaries } from "./TimingDb.ts";
+import { getDailyTotals, insertTimings, insertSummaryForDay, getDailySummary } from "./TimingDb.ts";
 import { TimingRecorder } from "./TimingRecorder.ts";
 import { emptyTotals, TotalsCache } from "./TotalsCache.ts";
 import { cancellablePromise, CancellablePromise } from "./utils/cancellablePromise.ts";
@@ -253,18 +253,14 @@ export class MonitoringApp {
                 const from = new Date();
                 from.setHours(0, 0, 0, 0);
 
-                const to = new Date();
-                to.setHours(24, 0, 0, 0);
-
                 this.isLoadingSummary = true;
-                getSummaries(this.timingDb, {
-                    from,
-                    to,
+                getDailySummary(this.timingDb, {
+                    day: from,
                     client: newValue.client,
                     project: newValue.project,
-                }).then((summaries) => {
+                }).then((summary) => {
                     runInAction(() => {
-                        this.summary = summaries[0]?.text ?? "";
+                        this.summary = summary?.text ?? "";
                         this.isLoadingSummary = false;
                     });
                 });
