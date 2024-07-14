@@ -159,13 +159,13 @@ extern "system" fn wndproc(window: HWND, message: u32, wparam: WPARAM, lparam: L
                     }
                     PBT_APMRESUMESUSPEND => {
                         // https://learn.microsoft.com/en-us/windows/win32/power/pbt-apmresumesuspend
-                        if let Some(sender) = &SENDER_PTR {
+                        if let Some(sender) = SENDER_PTR.as_deref() {
                             sender.send(PowerEvent::ComputerResumed).unwrap();
                         }
                     }
                     PBT_APMSUSPEND => {
                         // https://learn.microsoft.com/en-us/windows/win32/power/pbt-apmsuspend
-                        if let Some(sender) = &SENDER_PTR {
+                        if let Some(sender) = SENDER_PTR.as_deref() {
                             sender.send(PowerEvent::ComputerWillSleep).unwrap();
                         }
                     }
@@ -178,12 +178,12 @@ extern "system" fn wndproc(window: HWND, message: u32, wparam: WPARAM, lparam: L
 
                             match state {
                                 0 => {
-                                    if let Some(sender) = &SENDER_PTR {
+                                    if let Some(sender) = SENDER_PTR.as_deref() {
                                         sender.send(PowerEvent::MonitorsTurnedOff).unwrap();
                                     }
                                 }
                                 1 => {
-                                    if let Some(sender) = &SENDER_PTR {
+                                    if let Some(sender) = SENDER_PTR.as_deref() {
                                         sender.send(PowerEvent::MonitorsTurnedOn).unwrap();
                                     }
                                 }
@@ -213,7 +213,7 @@ mod tests {
 
         std::thread::spawn(|| {
             for event in receiver {
-                println!("Event: {:?}", event);
+                println!("🟢 Event: {:?}", event);
             }
         });
 

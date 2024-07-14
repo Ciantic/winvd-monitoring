@@ -21,10 +21,10 @@ struct SingleInstance {
     cwd: String,
 }
 
-#[derive(Clone, serde::Serialize)]
-struct Payload {
-    message: String,
-}
+// #[derive(Clone, serde::Serialize)]
+// struct Payload {
+//     message: String,
+// }
 
 #[derive(Clone, serde::Serialize, serde::Deserialize)]
 struct WebDesktop {
@@ -235,7 +235,7 @@ fn emit_power_events(window: &Window) {
 // }
 
 #[tauri::command]
-fn monitoring_connected(window: Window) -> MainConnected {
+fn monitoring_connected(_window: Window) -> MainConnected {
     // Listeners are now created, so we can start emitting events
 
     MainConnected {
