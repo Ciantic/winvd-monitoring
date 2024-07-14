@@ -36,6 +36,12 @@ Deno.test("parseDateRange single day without year", () => {
     });
 });
 
+Deno.test("parseDateRange single day with dash at the end", () => {
+    assertEquals(parseDateRange("1.5.-"), {
+        from: new Date(`${new Date().getFullYear()}-05-01 00:00:00`),
+    });
+});
+
 Deno.test("formatDateRange within same year", () => {
     assertEquals(
         formatDateRange({

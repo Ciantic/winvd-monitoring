@@ -82,9 +82,9 @@ function parseFinnishDateRange(range: string): { from: Date; to: Date } | undefi
     return { from, to };
 }
 
-export function parseDateRange(range: string): { from: Date; to: Date } | undefined {
+export function parseDateRange(range: string): { from: Date; to?: Date } | undefined {
     // If only one date is given, assume it's a date range from that day until
-    // today
+    // end of that day
     {
         const finnishDate = parseFinnishDate(range);
         if (finnishDate) {
@@ -98,6 +98,17 @@ export function parseDateRange(range: string): { from: Date; to: Date } | undefi
             to.setSeconds(59);
             to.setMilliseconds(999);
             return { from, to };
+        }
+    }
+
+    // If only one date and dash is given assume it's a date range from that day (to unknown date)
+    {
+        if (range.endsWith("-")) {
+            const finnishDate = parseFinnishDate(range.slice(0, -1));
+            if (finnishDate) {
+                const from = new Date(finnishDate);
+                return { from };
+            }
         }
     }
 

@@ -23,12 +23,15 @@ import { render } from "npm:solid-js/web";
 import { Lang } from "../Lang.ts";
 import {
     formatDateLong,
+    formatDateRange,
     formatDateTsv,
     formatDecimal,
     parseDateRange,
 } from "../utils/formatDate.ts";
 import { getDailyTotals, getSummaries, insertSummaryForDay } from "../TimingDb.ts";
 import { createTimingDatabase } from "../TimingDbCreator.ts";
+import { minMaxValue } from "../utils/minMaxValue.ts";
+import { createUrlSignal } from "../utils/createUrlSignal.ts";
 
 type Stats = {
     day: Date;
@@ -56,13 +59,13 @@ function debounce<T>(fn: (arg: T) => void, delay: number): (arg: T) => void {
 async function fetchData(props: { from?: Date; to?: Date; client: string; project: string }) {
     // Simulate by waiting
     // await new Promise((resolve) => setTimeout(resolve, 1000));
-    if (!props.from || !props.to) {
+    if (!props.from) {
         return [];
     }
 
     return await getDailyTotals(timingDb, {
         from: props.from,
-        to: props.to,
+        to: props.to ?? new Date(),
         client: props.client ? props.client + "%" : undefined,
         project: props.project ? props.project + "%" : undefined,
     });
@@ -156,11 +159,11 @@ function createCheckboxManager(rows: () => { id: string }[]) {
 }
 
 export function Stats() {
-    const [fxExpr, setFxExpr] = createSignal("r(x*1.25*2,0)/2");
-    const [hoursFilter, setHoursFilter] = createSignal("x>0.01");
-    const [dayFilter, setDayFilter] = createSignal("1 months");
-    const [clientFilter, setClientFilter] = createSignal("");
-    const [projectFilter, setProjectFilter] = createSignal("");
+    const [fxExpr, setFxExpr] = createUrlSignal("r(x*1.25*2,0)/2", "expr");
+    const [hoursFilter, setHoursFilter] = createUrlSignal("x>0.01", "hours");
+    const [dayFilter, setDayFilter] = createUrlSignal("1 months", "day");
+    const [clientFilter, setClientFilter] = createUrlSignal("", "client");
+    const [projectFilter, setProjectFilter] = createUrlSignal("", "project");
     const [showExportDialog, setShowExportDialog] = createSignal(false);
     const parsedDateRange = createMemo(() => parseDateRange(dayFilter()));
 
@@ -243,9 +246,9 @@ export function Stats() {
                         };
                     }
                     acc[key].fx += typeof x.fx === "number" ? x.fx : 0;
-                    acc[key].summaries.push({ date: formatDateTsv(x.day), summary: x.summary });
+                    acc[key].summaries.push({ day: x.day, summary: x.summary });
                     return acc;
-                }, {} as Record<string, { client: string; project: string; fx: number; summaries: { date: string; summary: string }[] }>);
+                }, {} as Record<string, { client: string; project: string; fx: number; summaries: { day: Date; summary: string }[] }>);
             return Object.values(grouped).map((x) => {
                 const cols = [];
                 if (showClient()) {
@@ -255,9 +258,16 @@ export function Stats() {
                     cols.push(x.project);
                 }
                 cols.push(formatDecimal(x.fx));
-                const firstDate = x.summaries[0]?.date;
-                const lastDate = x.summaries[x.summaries.length - 1]?.date;
-                cols.push(firstDate === lastDate ? firstDate : firstDate + "-" + lastDate);
+                const [first, last] = minMaxValue(x.summaries, (x) => x.day.getTime());
+                if (!first || !last) {
+                    return "";
+                }
+
+                cols.push(
+                    first.day === last.day
+                        ? formatDateTsv(first.day)
+                        : formatDateRange({ from: first.day, to: last.day })
+                );
                 return cols.join("\t") + "\n";
             });
         }
