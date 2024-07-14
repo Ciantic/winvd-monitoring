@@ -18,8 +18,8 @@ use windows::{
             CW_USEDEFAULT, IDC_ARROW, MSG, PBT_APMBATTERYLOW, PBT_APMOEMEVENT,
             PBT_APMPOWERSTATUSCHANGE, PBT_APMQUERYSUSPEND, PBT_APMQUERYSUSPENDFAILED,
             PBT_APMRESUMEAUTOMATIC, PBT_APMRESUMECRITICAL, PBT_APMRESUMESUSPEND, PBT_APMSUSPEND,
-            PBT_POWERSETTINGCHANGE, WINDOW_EX_STYLE, WM_CLOSE, WM_CREATE, WM_DESTROY,
-            WM_POWERBROADCAST, WNDCLASSA, WS_OVERLAPPEDWINDOW,
+            PBT_POWERSETTINGCHANGE, REGISTER_NOTIFICATION_FLAGS, WINDOW_EX_STYLE, WM_CLOSE,
+            WM_CREATE, WM_DESTROY, WM_POWERBROADCAST, WNDCLASSA, WS_OVERLAPPEDWINDOW,
         },
     },
 };
@@ -89,12 +89,20 @@ unsafe fn run_new_window(
     drop(hwnd_sender);
 
     // Listen for power scheme changes e.g. suspend and resume
-    let reg1 =
-        RegisterPowerSettingNotification(HANDLE(hwnd.0), &GUID_POWERSCHEME_PERSONALITY, 0).unwrap();
+    let reg1 = RegisterPowerSettingNotification(
+        HANDLE(hwnd.0),
+        &GUID_POWERSCHEME_PERSONALITY,
+        REGISTER_NOTIFICATION_FLAGS::default(),
+    )
+    .unwrap();
 
     // Listen for monitor sleeping
-    let reg2 =
-        RegisterPowerSettingNotification(HANDLE(hwnd.0), &GUID_CONSOLE_DISPLAY_STATE, 0).unwrap();
+    let reg2 = RegisterPowerSettingNotification(
+        HANDLE(hwnd.0),
+        &GUID_CONSOLE_DISPLAY_STATE,
+        REGISTER_NOTIFICATION_FLAGS::default(),
+    )
+    .unwrap();
 
     let mut message = MSG::default();
     while GetMessageA(&mut message, None, 0, 0).into() {

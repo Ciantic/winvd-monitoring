@@ -7,6 +7,7 @@ license = "MIT"
 repository = ""
 default-run = "winvd-monitoring"
 edition = "2021"
+# rust-version = "1.76.0"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -19,9 +20,15 @@ winvd = { path = "../winvd" }
 
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
-tauri = { version = "1.5.2", features = ["devtools", "icon-ico", "icon-png", "system-tray", "window-all"] }
+tauri = { version = "1.5.2", features = [
+    "devtools",
+    "icon-ico",
+    "icon-png",
+    "system-tray",
+    "window-all",
+] }
 raw-window-handle = "0.5"
-windows = { version = "0.52", features = [
+windows = { version = "0.56", features = [
     # Find WinApi features with searching here https://microsoft.github.io/windows-docs-rs/
 
     # https://microsoft.github.io/windows-docs-rs/doc/windows/Win32/Graphics/Dwm/fn.DwmExtendFrameIntoClientArea.html
@@ -36,11 +43,11 @@ windows = { version = "0.52", features = [
     "Win32_System_SystemServices",  # GUID_POWERSCHEME_PERSONALITY
 
 ] }
-tauri-plugin-single-instance = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "dev" }
+tauri-plugin-single-instance = { git = "https://github.com/tauri-apps/plugins-workspace", branch = "v1" }
 
 [dependencies.tauri-plugin-sql]
 git = "https://github.com/tauri-apps/plugins-workspace"
-branch = "dev"
+branch = "v1"
 features = ["sqlite"]                                   # or "postgres", or "mysql"
 
 # [profile.release]
