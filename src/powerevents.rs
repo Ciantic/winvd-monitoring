@@ -32,29 +32,31 @@ pub enum PowerEvent {
     MonitorsTurnedOn,
 }
 
+struct ThreadSafeHWND(isize);
+
 /// Create power events listener window, return type is function that will post
 /// quit message to window stopping the thread.
 pub fn create_power_events_listener(powerevents_sender: Sender<PowerEvent>) -> Box<impl FnOnce()> {
-    let (hwnd_sender, hwnd_receiver) = std::sync::mpsc::channel::<HWND>();
+    let (hwnd_sender, hwnd_receiver) = std::sync::mpsc::channel::<ThreadSafeHWND>();
     let thread = std::thread::spawn(|| unsafe {
         run_new_window(hwnd_sender, powerevents_sender).unwrap();
     });
     let hwnd = hwnd_receiver.recv().unwrap();
     return Box::new(move || {
         // Post quit message to hwnd
-        let _ = unsafe { PostMessageA(hwnd, WM_CLOSE, WPARAM(0), LPARAM(0)) };
+        let _ = unsafe { PostMessageA(HWND(hwnd.0 as _), WM_CLOSE, WPARAM(0), LPARAM(0)) };
         thread.join().unwrap();
     });
 }
 
 unsafe fn run_new_window(
-    hwnd_sender: Sender<HWND>,
+    hwnd_sender: Sender<ThreadSafeHWND>,
     powerevents_sender: Sender<PowerEvent>,
 ) -> Result<()> {
     let powerevents_sender_boxed = Box::new(powerevents_sender);
 
     let instance = GetModuleHandleA(None)?;
-    debug_assert!(instance.0 != 0);
+    debug_assert!(instance.0.is_null() == false);
     let window_class = s!("pwrevents");
 
     let wc = WNDCLASSA {
@@ -82,10 +84,11 @@ unsafe fn run_new_window(
         None,
         instance,
         Some(Box::into_raw(powerevents_sender_boxed) as *mut _),
-    );
-    debug_assert!(hwnd.0 != 0);
+    )
+    .unwrap();
+    debug_assert!(hwnd.0.is_null() == false);
 
-    hwnd_sender.send(hwnd).unwrap();
+    hwnd_sender.send(ThreadSafeHWND(hwnd.0 as _)).unwrap();
     drop(hwnd_sender);
 
     // Listen for power scheme changes e.g. suspend and resume

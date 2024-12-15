@@ -89,8 +89,7 @@ fn pin_to_all_desktops(window: &Window) {
     match raw_window_handle::HasRawWindowHandle::raw_window_handle(window) {
         #[cfg(target_os = "windows")]
         raw_window_handle::RawWindowHandle::Win32(handle) => {
-            let hwnd = handle.hwnd;
-            winvd::pin_window(HWND(hwnd as isize)).unwrap();
+            winvd::pin_window(HWND(handle.hwnd)).unwrap();
         }
         _ => (),
     }
